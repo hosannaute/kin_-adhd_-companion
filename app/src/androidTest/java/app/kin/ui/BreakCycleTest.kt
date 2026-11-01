@@ -36,10 +36,8 @@ class BreakCycleTest {
     private lateinit var task: Task
     private lateinit var goal: PersonalGoal
     private val notifications get() = app.getSystemService(NotificationManager::class.java)
-    private fun shell(command: String) {
-        automation.executeShellCommand(command).use { descriptor ->
-            android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes() }
-        }
+    private fun shell(command: String): String = automation.executeShellCommand(command).use { descriptor ->
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytes().toString(Charsets.UTF_8).trim() }
     }
     private fun appOp(operation: String, mode: String) = shell("appops set ${app.packageName} $operation $mode")
     private fun nodes(): List<AccessibilityNodeInfo> {
@@ -115,6 +113,18 @@ class BreakCycleTest {
         task = app.database.dao().allTasks().single()
     }
     @After fun cleanup() = runBlocking<Unit> {
+        appOp("POST_NOTIFICATION", "allow")
+        if (android.os.Build.VERSION.SDK_INT < 33 && !Notifications.allowed(app)) {
+            instrumentation.runOnMainSync { app.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, app.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            await {
+                nodes().firstOrNull { it.packageName?.toString()?.contains("settings") == true &&
+                    it.isCheckable && !it.isChecked && it.className?.contains("Switch") == true }
+                    ?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+            }
+            await { Notifications.allowed(app) }
+            shell("input keyevent 4")
+        }
         app.database.dao().currentFocus()?.let { app.repository.stopFocus(it.id) }
         app.database.dao().currentBreak()?.let { app.breaks.stop(it.id, it.revision) }
         app.stopService(Intent(app, BreakTimerService::class.java)); FloatingCompanionService.stop(app)
@@ -269,8 +279,24 @@ class BreakCycleTest {
     @Test fun deniedWindowAndNotificationsStillRecoverTheDueReminderInApp() = runBlocking<Unit> {
         val value = begin()
         if (android.os.Build.VERSION.SDK_INT >= 33) {
-            // Settings uses the platform's no-kill notification revocation path. A raw
-            // runtime-permission revoke could kill this instrumentation's target process.
+            // Android's dedicated TestApi revokes the real permission without killing the
+            // instrumentation target. Settings/pm revoke would terminate this test process.
+            // Access is enabled only on the test emulator and restored immediately afterward.
+            val policy = shell("settings get global hidden_api_policy")
+            try {
+                shell("settings put global hidden_api_policy 1")
+                automation.adoptShellPermissionIdentity("android.permission.REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL")
+                val manager = app.getSystemService("permission")
+                manager.javaClass.getMethod("revokePostNotificationPermissionWithoutKillForTest",
+                    String::class.java, Int::class.javaPrimitiveType).invoke(manager, app.packageName, android.os.Process.myUid() / 100_000)
+            } finally {
+                automation.dropShellPermissionIdentity()
+                if (policy == "null") shell("settings delete global hidden_api_policy")
+                else shell("settings put global hidden_api_policy $policy")
+            }
+        } else {
+            // The legacy Settings master switch updates NotificationManager's package state;
+            // changing AppOps alone does not reliably disable already-enabled notifications.
             scenario!!.onActivity { it.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 .putExtra(Settings.EXTRA_APP_PACKAGE, app.packageName)) }
             await { automation.rootInActiveWindow?.packageName?.toString()?.contains("settings") == true }
@@ -282,7 +308,8 @@ class BreakCycleTest {
             await { !Notifications.allowed(app) }
             shell("input keyevent 4")
             expect("Your scrolling break")
-        } else appOp("POST_NOTIFICATION", "ignore")
+        }
+        await { !Notifications.allowed(app) }
         assertFalse(Notifications.allowed(app))
         anotherApp(); nearExpiry(value.id)
         await { runBlocking { app.database.dao().currentBreak()?.phase == "DUE" } }
