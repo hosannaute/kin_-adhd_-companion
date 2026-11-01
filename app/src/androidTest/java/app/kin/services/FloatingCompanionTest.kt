@@ -127,8 +127,9 @@ class FloatingCompanionTest {
         val previousFlags = serviceInfo.flags
         serviceInfo.flags = serviceInfo.flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         automation.serviceInfo = serviceInfo
-        val settingsIntent = Intent(Settings.ACTION_SETTINGS)
-        val selectedPackage = app.packageManager.resolveActivity(settingsIntent, 0)!!.activityInfo.packageName
+        val selectedPackage = app.packageName + ".test"
+        val externalApp = Intent().setClassName(selectedPackage, UsageFixtureActivity::class.java.name)
+        assertTrue(UsageAccess.apps(app).any { it.packageName == selectedPackage })
         // Compose exposes virtual children. Traverse them, as UIAutomator does, rather
         // than relying on the platform's provider-specific find-by-text shortcut.
         fun nodes(text: String): List<AccessibilityNodeInfo> {
@@ -153,11 +154,18 @@ class FloatingCompanionTest {
                 scenario.onActivity { assertTrue(FloatingCompanionService.start(it)) }
                 await { FloatingCompanionService.status.value.visible }
                 await { nodes("Stop").isNotEmpty() }
-                scenario.onActivity { it.startActivity(settingsIntent) }
+                scenario.onActivity { it.startActivity(externalApp) }
                 val wallStart = System.currentTimeMillis()
                 val elapsedStart = android.os.SystemClock.elapsedRealtime()
                 try {
-                    withTimeout(180_000) { while (nodes("Still taking a break").isEmpty()) delay(1000) }
+                    withTimeout(180_000) {
+                        while (true) {
+                            // Only UI frames are advanced. UsageStats/SystemClock still count a real minute.
+                            compose.waitForIdle()
+                            if (nodes("Still taking a break").isNotEmpty()) break
+                            delay(1000)
+                        }
+                    }
                 } catch (e: TimeoutCancellationException) {
                     val wall = System.currentTimeMillis()
                     val elapsed = android.os.SystemClock.elapsedRealtime()

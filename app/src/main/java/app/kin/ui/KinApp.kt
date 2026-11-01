@@ -15,7 +15,7 @@ import app.kin.features.KinViewModel
 private data class Destination(val route: String, val title: String, val icon: ImageVector)
 
 @Composable
-fun KinApp(vm: KinViewModel, initialRoute: String?) {
+fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0) {
     val preferences by vm.preferences.collectAsStateWithLifecycle()
     val pref = preferences
     KinTheme(pref?.darkMode ?: false) {
@@ -36,6 +36,9 @@ fun KinApp(vm: KinViewModel, initialRoute: String?) {
                     Destination("more", "More", Icons.Outlined.MoreHoriz))
                 val entry by nav.currentBackStackEntryAsState()
                 fun go(route: String) { nav.navigate(route) { launchSingleTop = true; popUpTo("home") { saveState = true }; restoreState = true } }
+                LaunchedEffect(requestedRoute, requestId) {
+                    requestedRoute?.takeIf { it in listOf("tasks", "focus", "more") }?.let { go(it) }
+                }
                 Scaffold(snackbarHost = { SnackbarHost(snackbar) }, bottomBar = {
                     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                         destinations.forEach { dest ->
@@ -45,7 +48,7 @@ fun KinApp(vm: KinViewModel, initialRoute: String?) {
                         }
                     }
                 }) { padding ->
-                    NavHost(nav, startDestination = initialRoute?.takeIf { it in listOf("tasks", "focus", "more") } ?: "home",
+                    NavHost(nav, startDestination = "home",
                         modifier = Modifier.padding(padding)) {
                         composable("home") { HomeScreen(vm, pref, { go("tasks") }, { go("focus") }, { go("more") }) }
                         composable("tasks") { TasksScreen(vm, { go("focus") }) }
