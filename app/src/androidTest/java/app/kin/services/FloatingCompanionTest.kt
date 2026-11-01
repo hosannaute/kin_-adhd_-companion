@@ -121,8 +121,18 @@ class FloatingCompanionTest {
         automation.serviceInfo = serviceInfo
         val settingsIntent = Intent(Settings.ACTION_SETTINGS)
         val selectedPackage = app.packageManager.resolveActivity(settingsIntent, 0)!!.activityInfo.packageName
-        fun nodes(text: String): List<AccessibilityNodeInfo> = automation.windows.flatMap {
-            it.root?.findAccessibilityNodeInfosByText(text) ?: emptyList()
+        // Compose exposes virtual children. Traverse them, as UIAutomator does, rather
+        // than relying on the platform's provider-specific find-by-text shortcut.
+        fun nodes(text: String): List<AccessibilityNodeInfo> {
+            val found = mutableListOf<AccessibilityNodeInfo>()
+            val pending = java.util.ArrayDeque<AccessibilityNodeInfo>()
+            automation.windows.mapNotNull { it.root }.forEach(pending::add)
+            while (pending.isNotEmpty()) {
+                val node = pending.removeFirst()
+                if (node.text?.contains(text) == true || node.contentDescription?.contains(text) == true) found += node
+                for (index in 0 until node.childCount) node.getChild(index)?.let(pending::add)
+            }
+            return found
         }
         app.preferences.save(previous.copy(onboarded = true, reducedMotion = true, quietStart = 0, quietEnd = 0))
         app.companionMode.select(selectedPackage, true)
@@ -158,7 +168,11 @@ class FloatingCompanionTest {
                 }
                 assertTrue(nodes("Taking a break").isNotEmpty())
                 assertTrue(nodes("Just scrolling").isNotEmpty())
-                val returnButton = nodes("Return to my goals").first()
+                var returnButton = nodes("Return to my goals").first()
+                while (!returnButton.isClickable) {
+                    val parent = returnButton.parent ?: break
+                    returnButton = parent
+                }
                 assertTrue(returnButton.performAction(AccessibilityNodeInfo.ACTION_CLICK))
                 await { nodes("Your adventures").isNotEmpty() }
             }
