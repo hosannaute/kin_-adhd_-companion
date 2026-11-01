@@ -134,8 +134,28 @@ class FloatingCompanionTest {
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 scenario.onActivity { assertTrue(FloatingCompanionService.start(it)) }
                 await { FloatingCompanionService.status.value.visible }
+                await { nodes("Stop").isNotEmpty() }
                 scenario.onActivity { it.startActivity(settingsIntent) }
-                withTimeout(180_000) { while (nodes("Still taking a break").isEmpty()) delay(1000) }
+                val wallStart = System.currentTimeMillis()
+                val elapsedStart = android.os.SystemClock.elapsedRealtime()
+                try {
+                    withTimeout(180_000) { while (nodes("Still taking a break").isEmpty()) delay(1000) }
+                } catch (e: TimeoutCancellationException) {
+                    val wall = System.currentTimeMillis()
+                    val elapsed = android.os.SystemClock.elapsedRealtime()
+                    val events = app.getSystemService(android.app.usage.UsageStatsManager::class.java)
+                        .queryEvents(wall - 240_000, wall)
+                    val event = android.app.usage.UsageEvents.Event()
+                    val selectedEvents = mutableListOf<String>()
+                    while (events != null && events.hasNextEvent()) {
+                        events.getNextEvent(event)
+                        if (event.packageName == selectedPackage) selectedEvents += "${event.eventType}:${wall - event.timeStamp}ms ago"
+                    }
+                    throw AssertionError("No check-in: status=${FloatingCompanionService.status.value}; " +
+                        "usageGranted=${UsageAccess.granted(app)}; selectedEvents=$selectedEvents; " +
+                        "clockSkew=${(wall - wallStart) - (elapsed - elapsedStart)}ms; " +
+                        "stopVisible=${nodes("Stop").isNotEmpty()}", e)
+                }
                 assertTrue(nodes("Taking a break").isNotEmpty())
                 assertTrue(nodes("Just scrolling").isNotEmpty())
                 val returnButton = nodes("Return to my goals").first()
