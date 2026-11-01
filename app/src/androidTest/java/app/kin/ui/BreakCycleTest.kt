@@ -56,7 +56,10 @@ class BreakCycleTest {
         val end = SystemClock.elapsedRealtime() + timeout
         while (!condition()) {
             if (SystemClock.elapsedRealtime() >= end) fail("Timed out: service=${BreakTimerService.status.value}; bubble=${FloatingCompanionService.status.value}; UI=${nodes().mapNotNull { it.text ?: it.contentDescription }.take(55)}")
-            compose.waitForIdle(); SystemClock.sleep(100)
+            // There may be no KIN Compose root before launch, after close, or while
+            // Settings/another app owns the screen. waitForIdle() expects a root and
+            // can wait indefinitely here; tick rendering without requiring one.
+            compose.mainClock.advanceTimeByFrame(); SystemClock.sleep(100)
         }
     }
     private fun expect(text: String) = await {
@@ -142,7 +145,7 @@ class BreakCycleTest {
         val info = automation.serviceInfo; info.flags = previousFlags; automation.serviceInfo = info
     }
 
-    @Test fun setupPauseRecreateAndChosenFocusDurationWorkAsOneCycle() = runBlocking<Unit> {
+    @Test(timeout = 120_000) fun setupPauseRecreateAndChosenFocusDurationWorkAsOneCycle() = runBlocking<Unit> {
         launchFocus()
         compose.onNodeWithTag("focus_screen").performScrollToNode(hasText("Plan a scrolling break"))
         compose.onNodeWithText("Plan a scrolling break").performClick()
@@ -171,7 +174,7 @@ class BreakCycleTest {
         await { !BreakTimerService.status.value.running }
     }
 
-    @Test fun realWindowExpiresOverAnotherAppSnoozesWithGoalAndStartsChosenFocus() = runBlocking<Unit> {
+    @Test(timeout = 120_000) fun realWindowExpiresOverAnotherAppSnoozesWithGoalAndStartsChosenFocus() = runBlocking<Unit> {
         appOp("SYSTEM_ALERT_WINDOW", "allow")
         app.repository.saveTask(Task(title = "Different higher-priority task", priority = 2))
         val value = begin()
@@ -203,7 +206,7 @@ class BreakCycleTest {
         await { !BreakTimerService.status.value.running && !BreakTimerService.status.value.visible }
     }
 
-    @Test fun deniedOverlayUsesRealNotificationActionsAndRejectsStaleSnooze() = runBlocking<Unit> {
+    @Test(timeout = 120_000) fun deniedOverlayUsesRealNotificationActionsAndRejectsStaleSnooze() = runBlocking<Unit> {
         val xp = app.database.dao().companion().first()?.xp ?: 0
         val value = begin(); anotherApp(); nearExpiry(value.id)
         await { notifications.activeNotifications.any { it.tag == "kin.break.${value.id}" && it.id == BreakNotifications.DUE_ID } }
@@ -228,7 +231,7 @@ class BreakCycleTest {
         assertEquals(xp, app.database.dao().companion().first()?.xp ?: 0)
     }
 
-    @Test fun naturalFocusCompletionRewardsOnceAndOffersTheNextBreak() = runBlocking<Unit> {
+    @Test(timeout = 120_000) fun naturalFocusCompletionRewardsOnceAndOffersTheNextBreak() = runBlocking<Unit> {
         val xp = app.database.dao().companion().first()?.xp ?: 0
         val value = begin(); nearExpiry(value.id)
         expect("Your break is over")
@@ -251,7 +254,7 @@ class BreakCycleTest {
         assertEquals(xp + 15, app.database.dao().companion().first()!!.xp)
     }
 
-    @Test fun pausedBreakRecoversServiceAndQuietHoursDelayTheWindow() = runBlocking<Unit> {
+    @Test(timeout = 120_000) fun pausedBreakRecoversServiceAndQuietHoursDelayTheWindow() = runBlocking<Unit> {
         appOp("SYSTEM_ALERT_WINDOW", "allow")
         val value = begin()
         compose.onNodeWithText("Pause break").performScrollTo().performClick()
@@ -276,7 +279,7 @@ class BreakCycleTest {
         await { !BreakTimerService.status.value.running }
     }
 
-    @Test fun deniedWindowAndNotificationsStillRecoverTheDueReminderInApp() = runBlocking<Unit> {
+    @Test(timeout = 120_000) fun deniedWindowAndNotificationsStillRecoverTheDueReminderInApp() = runBlocking<Unit> {
         val value = begin()
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             // Android's dedicated TestApi revokes the real permission without killing the
