@@ -92,8 +92,6 @@ class FocusPipTest {
     }
     private fun clickNative(label: String, vararg ids: String) {
         var lastTap = 0L
-        var previousBounds: Rect? = null
-        var stableSince = 0L
         await {
             // This is Android's native PiP dismiss accessibility action, also used by TalkBack.
             // It avoids depending on OEM-specific X-button labels and menu layout.
@@ -117,14 +115,11 @@ class FocusPipTest {
             while (node != null && !node.isClickable) node = node.parent
             if (node != null) {
                 val bounds = Rect(); node.getBoundsInScreen(bounds)
-                if (bounds != previousBounds) { previousBounds = Rect(bounds); stableSince = SystemClock.elapsedRealtime() }
-                if (!bounds.isEmpty && SystemClock.elapsedRealtime() - stableSince >= 500) {
-                    lastNativeClick = "$label, package=${node.packageName}, id=${node.viewIdResourceName}, bounds=$bounds"
-                    tap(bounds.exactCenterX(), bounds.exactCenterY())
-                    true
-                } else false
+                lastNativeClick = "$label, package=${node.packageName}, id=${node.viewIdResourceName}, bounds=$bounds"
+                // Invoke the actual System UI button as TalkBack does. Coordinate taps race
+                // the PiP menu's resize animation and its short automatic dismissal timeout.
+                node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
             } else {
-                previousBounds = null
                 if (isPinned() && SystemClock.elapsedRealtime() - lastTap > 6_000) {
                     pipBounds()?.let { tap(it.exactCenterX(), it.exactCenterY()); lastTap = SystemClock.elapsedRealtime() }
                 }
