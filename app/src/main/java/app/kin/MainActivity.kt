@@ -2,6 +2,7 @@ package app.kin
 
 import android.os.Bundle
 import android.content.Intent
+import android.content.res.Configuration
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -9,16 +10,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
 import app.kin.features.KinViewModel
 import app.kin.ui.KinApp
 import app.kin.domain.TaskEntry
 import app.kin.domain.TaskEntryAction
+import app.kin.features.FocusPipController
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 open class MainActivity : ComponentActivity() {
     protected open val acceptsReminderStart: Boolean = false
     private var routeRequest by mutableStateOf<Pair<String, Int>?>(null)
     private var taskEntry by mutableStateOf<TaskEntry?>(null)
+    private lateinit var pip: FocusPipController
     private fun acceptRoute(intent: Intent) {
         val route = intent.getStringExtra("route")?.takeIf { it in listOf("tasks", "focus", "more") } ?: return
         val taskId = intent.getLongExtra("taskId", 0)
@@ -36,12 +39,16 @@ open class MainActivity : ComponentActivity() {
             val action = savedInstanceState.getString("taskAction")?.let { runCatching { TaskEntryAction.valueOf(it) }.getOrNull() }
             if (id > 0 && action != null) taskEntry = TaskEntry(id, action)
         }
+        val vm = ViewModelProvider(this, object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = KinViewModel(application as KinApplication) as T
+        })[KinViewModel::class.java]
+        pip = FocusPipController(this, application as KinApplication, savedInstanceState, vm::reportError)
         setContent {
-            val vm: KinViewModel = viewModel(factory = object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T = KinViewModel(application as KinApplication) as T
-            })
-            KinApp(vm, routeRequest?.first, routeRequest?.second ?: 0, taskEntry)
+            val compact = pip.compact.collectAsStateWithLifecycle()
+            val focusState = pip.state.collectAsStateWithLifecycle()
+            KinApp(vm, routeRequest?.first, routeRequest?.second ?: 0, taskEntry,
+                compact, focusState, pip::enter, pip::openSettings)
         }
     }
     override fun onNewIntent(intent: Intent) {
@@ -52,6 +59,11 @@ open class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         routeRequest?.let { outState.putString("requestedRoute", it.first); outState.putInt("requestId", it.second) }
         taskEntry?.let { outState.putLong("taskId", it.taskId); outState.putString("taskAction", it.action.name) }
+        if (::pip.isInitialized) pip.save(outState)
         super.onSaveInstanceState(outState)
+    }
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (::pip.isInitialized) pip.modeChanged(isInPictureInPictureMode)
     }
 }

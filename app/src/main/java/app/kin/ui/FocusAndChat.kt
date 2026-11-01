@@ -16,58 +16,37 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import app.kin.data.UserPreferences
 import app.kin.domain.Evolution
 import app.kin.features.KinViewModel
-import app.kin.services.Notifications
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import app.kin.features.PipFocusState
+import app.kin.features.PipAvailability
 
 @Composable
-fun FocusScreen(vm: KinViewModel, pref: UserPreferences) {
-    val session by vm.focus.collectAsStateWithLifecycle()
+fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, enterPip: () -> Unit, pipSettings: () -> Unit) {
+    val session = timer.session?.takeUnless { it.ended }
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     val companion by vm.companion.collectAsStateWithLifecycle()
     val count by vm.sessionCount.collectAsStateWithLifecycle()
     var minutes by rememberSaveable { mutableIntStateOf(25) }
     var custom by rememberSaveable { mutableStateOf("25") }
     var taskId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var left by remember { mutableLongStateOf(0L) }
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(session, lifecycle) {
-        val current = session ?: return@LaunchedEffect
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (isActive) {
-                left = vm.repository.remaining(current)
-                if (current.running && left == 0L) {
-                    vm.action {
-                        if (vm.repository.refreshFocus(current.id)) Notifications.show(vm.app, Int.MAX_VALUE,
-                            "A little progress, well earned", "Your focus session is complete. +15 XP", "focus")
-                    }
-                    break
-                }
-                delay(250)
-            }
-        }
-    }
     Box(Modifier.fillMaxSize()) {
         WorldLandscape(night = true, modifier = Modifier.fillMaxSize(), unlocked = 2)
         Box(Modifier.fillMaxSize().background(Color(0xFF101D32).copy(alpha=.55f)))
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), horizontalAlignment = Alignment.CenterHorizontally,
+        LazyColumn(Modifier.fillMaxSize().testTag("focus_screen"), contentPadding = PaddingValues(20.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item { Text("A little focus", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
             item { Text(session?.taskTitle ?: "You don't have to do everything. Just be here.", color = Color(0xFFDEE7F2)) }
             item { CompanionArt(Evolution.at(companion?.xp ?: 0), pref.reducedMotion, Modifier.size(170.dp), CreatureMood.SLEEPING) }
             item {
-                val millis = if (session != null) left else minutes * 60_000L
+                val millis = if (session != null) timer.remainingMillis else minutes * 60_000L
                 val seconds = (millis + 999) / 1000
                 Box(Modifier.size(230.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(progress = { if (session != null) (millis.toFloat() / session!!.durationMillis).coerceIn(0f,1f) else 1f },
@@ -89,6 +68,24 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences) {
                     FilledTonalButton(onClick = { vm.action { vm.repository.stopFocus(current.id) } }) { Text("Finish early") }
                 }
             }
+            item { SoftCard {
+                Text("Picture-in-Picture", fontWeight = FontWeight.Bold)
+                when (timer.availability) {
+                    PipAvailability.AVAILABLE -> {
+                        Text("Keep your companion and timer beside other apps. Tap the small window for controls or to return to KIN.")
+                        OutlinedButton(onClick = enterPip, enabled = session != null) {
+                            Icon(Icons.Outlined.PictureInPictureAlt, null); Text(" Open Picture-in-Picture")
+                        }
+                        Text(if (session == null) "Start a focus session to open the window." else "Closing the window keeps your session running. Finish early ends it without XP.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    PipAvailability.DISABLED -> {
+                        Text("Picture-in-Picture is disabled for KIN in Android settings. Your timer still works here.")
+                        OutlinedButton(onClick = pipSettings) { Text("Allow Picture-in-Picture") }
+                    }
+                    PipAvailability.UNSUPPORTED -> Text("This device doesn't support Picture-in-Picture. Your timer still works here.")
+                }
+            } }
             if (session == null) {
                 item { SoftCard {
                     Text("Choose your pace", fontWeight = FontWeight.Bold)

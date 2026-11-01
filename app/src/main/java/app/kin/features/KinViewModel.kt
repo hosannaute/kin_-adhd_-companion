@@ -16,7 +16,7 @@ class KinViewModel(val app: KinApplication) : ViewModel() {
     val goals = repository.dao.goals().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val subtasks = repository.dao.subtasks().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val companion = repository.dao.companion().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-    val focus = repository.dao.activeFocus().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val focus = repository.dao.activeFocus().stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val messages = repository.dao.messages().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val achievements = repository.dao.achievements().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val sessionCount = repository.dao.sessionCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -24,6 +24,7 @@ class KinViewModel(val app: KinApplication) : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
     fun clearError() { _error.value = null }
+    fun reportError(message: String) { _error.value = message }
     fun action(block: suspend () -> Unit) { viewModelScope.launch {
         try { block() } catch (e: CancellationException) { throw e }
         catch (e: Exception) { _error.value = e.message ?: "Something went wrong. Please try again." }

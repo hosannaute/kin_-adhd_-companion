@@ -20,13 +20,15 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-started visible floating productivity companion with optional local selected-app usage reminders and persistent pause/stop controls" />
         </service>
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".MainActivity" android:exported="true" android:supportsPictureInPicture="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".ReminderActivity" android:exported="false" />
+        <activity android:name=".ReminderActivity" android:exported="false" android:supportsPictureInPicture="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation" />
         <receiver android:name=".services.ReminderActionReceiver" android:exported="false" />
     </application>
 </manifest>

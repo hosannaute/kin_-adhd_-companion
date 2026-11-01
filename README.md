@@ -3,11 +3,11 @@
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
-**Status: native Android 0.3 development build with recurring tasks, actionable subtasks, reminder actions and an optional floating companion.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
+**Status: native Android 0.4 development build with native focus Picture-in-Picture, recurring tasks, actionable subtasks, reminder actions and an optional floating companion.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
 
 ## Download
 
-[Download KIN 0.3 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
+[Download KIN 0.4 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
 
 This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). The checked-in APK is built from this branch's app source; subsequent documentation-only commits do not change its code. It uses the existing signing certificate and an explicit database migration from schema 1 to 2 for in-place updates. Known missing features are listed below and in the roadmap.
 
@@ -19,6 +19,7 @@ This is an early debug build, not a production release. Android may ask you to a
 - Daily/weekly/monthly recurring tasks, persistent actionable subtasks, native date/time pickers, and task-specific Start/Snooze/Options notifications. Completing or skipping creates one next future occurrence; skipped tasks award no XP. See [offline planner behavior](docs/OFFLINE_PLANNER.md).
 - Locally stored personal goals, motivations, achievements, and companion XP. Completing the same task, focus session, or goal cannot award XP twice. Deleting a goal unlinks its tasks without deleting them. Deleting a memory does not remove earned XP.
 - Focus presets (5, 15, 25, 45 minutes), custom duration (1–180 minutes), pause/resume, task association, and saved completed/interrupted sessions. Monotonic time and a persisted boot count protect active countdown accuracy across process recreation and wall-clock changes. Active sessions are interrupted on reboot without awarding XP; paused sessions can be resumed. Finishing early awards no XP.
+- Native Android Picture-in-Picture for an active or paused focus session, with companion/task/countdown, System UI pause/resume and finish controls, expansion back to Focus, availability/settings handling, and coordination that hides an existing floating overlay. Dismissing PiP preserves the session. See [PiP behavior and limits](docs/PICTURE_IN_PICTURE.md).
 - An original Canvas-rendered creature with breathing, blinking, waving, sleeping, and celebration poses; six visible evolution stages. Reduced motion freezes animations. A lightweight painted-vector world gains a cottage and flowers with progression.
 - Offline guided chat with contextual templates, emotional shortcuts, conversation history, and honest disclosure that it is not AI or mental healthcare. “I can't start” offers small steps that can be edited and saved to a task, rest, and short focus sessions.
 - WorkManager task reminders and focus-completion work; optional notification permission; quiet hours; a global task-reminder pause; dark mode and companion naming in DataStore. Android may delay background notifications.

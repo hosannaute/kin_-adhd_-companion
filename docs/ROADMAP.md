@@ -21,6 +21,7 @@ The supplied KIN master specification and six-screen image guide the project. In
 - Milestone 9: baseline verification is extended for 0.2 with usage-policy and real-overlay tests, plus an API 26/35 CI matrix. See VALIDATION.md for the exact current outcomes and remaining device limits.
 
 - Offline planner (0.3): daily/weekly/monthly repeats, persistent subtasks, native schedule pickers, Start/Snooze/Options notifications, task-specific breakdown/reschedule/skip and a schema 1 → 2 migration. See [behavior and limits](OFFLINE_PLANNER.md).
+- Focus Picture-in-Picture (0.4): native pinned companion/timer, pause/resume/finish actions, expand/dismiss behavior, settings recovery and overlay coordination. See [behavior and device-validation scope](PICTURE_IN_PICTURE.md).
 
 ## Still unimplemented
 
@@ -38,7 +39,7 @@ The supplied KIN master specification and six-screen image guide the project. In
 | Android project builds | Debug APK and test APK assemble successfully |
 | Main screens navigate | Navigation instrumentation tests pass on API 26 and 35 |
 | Create/complete/persist tasks | Persistence, recurring completion/skip, migration and subtask tests pass on API 26 and 35 |
-| Focus timer and persistence | Clock unit tests and recovery/reward device tests pass; background/real-device acceptance pending |
+| Focus timer and persistence | Clock, recovery/reward and native PiP lifecycle/control scenarios pass on API 26/35; physical-device acceptance remains |
 | Scheduled reminders | WorkManager implementation; notification actions and snooze scheduling pass API 26/35; background delivery remains inexact |
 | Animated companion | Native Canvas implementation; main-screen navigation exercised on API 26; visual/motion audit pending |
 | Persistent XP/evolution | Transactional Room implementation; exactly-once reward tests pass on API 26 and 35 |

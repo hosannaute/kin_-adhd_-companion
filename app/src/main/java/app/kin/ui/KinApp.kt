@@ -9,17 +9,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.*
 import app.kin.features.KinViewModel
 import app.kin.domain.TaskEntry
 import app.kin.domain.TaskEntryAction
+import app.kin.features.PipFocusState
 import kotlinx.coroutines.flow.first
 
 private data class Destination(val route: String, val title: String, val icon: ImageVector)
 
 @Composable
-fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEntry: TaskEntry? = null) {
+fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEntry: TaskEntry? = null,
+           compact: State<Boolean>, timer: State<PipFocusState>, enterPip: () -> Unit, pipSettings: () -> Unit) {
     val preferences by vm.preferences.collectAsStateWithLifecycle()
     val pref = preferences
     KinTheme(pref?.darkMode ?: false) {
@@ -41,37 +44,42 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                     Destination("more", "More", Icons.Outlined.MoreHoriz))
                 val entry by nav.currentBackStackEntryAsState()
                 fun go(route: String) { nav.navigate(route) { launchSingleTop = true; popUpTo("home") { saveState = true }; restoreState = true } }
-                Scaffold(snackbarHost = { SnackbarHost(snackbar) }, bottomBar = {
-                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                        destinations.forEach { dest ->
-                            NavigationBarItem(selected = entry?.destination?.route == dest.route,
-                                onClick = { go(dest.route) }, icon = { Icon(dest.icon, dest.title) },
-                                label = { Text(dest.title) })
+                Box(Modifier.fillMaxSize()) {
+                    // Keep the NavHost installed while pinned so expanding returns to the same route.
+                    Scaffold(modifier = if (compact.value) Modifier.size(0.dp).clearAndSetSemantics { } else Modifier.fillMaxSize(),
+                        snackbarHost = { if (!compact.value) SnackbarHost(snackbar) }, bottomBar = {
+                        if (!compact.value) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                            destinations.forEach { dest ->
+                                NavigationBarItem(selected = entry?.destination?.route == dest.route,
+                                    onClick = { go(dest.route) }, icon = { Icon(dest.icon, dest.title) },
+                                    label = { Text(dest.title) })
+                            }
                         }
-                    }
-                }) { padding ->
-                    NavHost(nav, startDestination = "home",
-                        modifier = Modifier.padding(padding)) {
-                        composable("home") { HomeScreen(vm, pref, { go("tasks") }, { go("focus") }, { go("more") }) }
-                        composable("tasks") { TasksScreen(vm, { go("focus") },
-                            taskEntry?.takeIf { it.action == TaskEntryAction.OPTIONS }?.taskId, requestId) }
-                        composable("world") { WorldScreen(vm, pref) }
-                        composable("chat") { ChatScreen(vm, pref) }
-                        composable("more") { SettingsScreen(vm, pref, { go("focus") }) }
-                        composable("focus") { FocusScreen(vm, pref) }
-                    }
-                    LaunchedEffect(requestedRoute, requestId) {
-                        requestedRoute?.takeIf { it in listOf("tasks", "focus", "more") }?.let {
-                            // Scaffold subcomposes its content during layout. Wait for NavHost
-                            // to install its graph rather than racing the first layout pass.
-                            nav.currentBackStackEntryFlow.first()
-                            if (handledRequest != requestId) {
-                                handledRequest = requestId
-                                if (taskEntry?.action == TaskEntryAction.START) vm.reminderStart(taskEntry.taskId)
-                                go(it)
+                    }) { padding ->
+                        NavHost(nav, startDestination = "home",
+                            modifier = Modifier.padding(padding)) {
+                            composable("home") { HomeScreen(vm, pref, { go("tasks") }, { go("focus") }, { go("more") }) }
+                            composable("tasks") { TasksScreen(vm, { go("focus") },
+                                taskEntry?.takeIf { it.action == TaskEntryAction.OPTIONS }?.taskId, requestId) }
+                            composable("world") { WorldScreen(vm, pref) }
+                            composable("chat") { ChatScreen(vm, pref) }
+                            composable("more") { SettingsScreen(vm, pref, { go("focus") }) }
+                            composable("focus") { if (!compact.value) FocusScreen(vm, pref, timer.value, enterPip, pipSettings) }
+                        }
+                        LaunchedEffect(requestedRoute, requestId) {
+                            requestedRoute?.takeIf { it in listOf("tasks", "focus", "more") }?.let {
+                                // Scaffold subcomposes its content during layout. Wait for NavHost
+                                // to install its graph rather than racing the first layout pass.
+                                nav.currentBackStackEntryFlow.first()
+                                if (handledRequest != requestId) {
+                                    handledRequest = requestId
+                                    if (taskEntry?.action == TaskEntryAction.START) vm.reminderStart(taskEntry.taskId)
+                                    go(it)
+                                }
                             }
                         }
                     }
+                    if (compact.value) FocusPipContent(vm, pref, timer)
                 }
             }
         }

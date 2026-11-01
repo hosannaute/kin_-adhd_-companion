@@ -1,5 +1,13 @@
 # Validation record
 
+## 0.4 Picture-in-Picture validation
+
+- Tested app/test revision: [`848e102`](https://github.com/hosannaute/kin_-adhd_-companion/commit/848e102d6698da50d4f3562c9f9801891e12b783). [CI run 41345733936](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41345733936) completed successfully: build, API 26 and API 35 jobs all passed. The publication follow-up only updates documentation and the APK; tested app/test source is unchanged.
+- **36 unit tests pass**, and **32 Android scenarios pass on each of API 26 and API 35**. The six added scenarios open a real native PiP window, verify a live countdown above a separate app, invoke actual System UI pause/resume/finish buttons, expand back to the same Focus route, rotate/recreate the activity, dismiss through Android's native accessibility action, preserve a running timer, recover from denied PiP access through settings, restore/suspend an existing overlay correctly, and award natural completion XP exactly once. The existing planner, migration, reminder, navigation, floating-window and real one-minute usage regressions remain enabled.
+- Debug and instrumentation APKs assemble. `lintDebug`: **0 errors and 0 warnings**. Tests refresh KIN's unfocused accessibility content and use native accessibility actions for controls to avoid racing Android's menu animation/auto-hide timeout; timer/state/reward assertions remain in place.
+- The published candidate is version **0.4.0/code 4**, min API 26/target 35, with Room schema 2 unchanged. The APK signature verifies against the existing published certificate, and its checksum matches the local build. Both Focus-hosting activities declare PiP support; the merged manifest has no Internet permission. Production DEX has no test fixtures or temporary components.
+- See [PICTURE_IN_PICTURE.md](PICTURE_IN_PICTURE.md) for user flows. Physical-device/OEM menus, long-use battery behavior, lock screens, TalkBack and large fonts still need manual acceptance; these emulator results are not a production-release claim.
+
 ## 0.3 offline planner validation
 
 - Tested app/test revision: [`262c41d`](https://github.com/hosannaute/kin_-adhd_-companion/commit/262c41d7f268416d1263900269296a11ca2e689d). [CI run 41336235123](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41336235123) completed successfully: build, API 26 and API 35 jobs all passed. Subsequent documentation-only commits do not change the tested app or published APK.
