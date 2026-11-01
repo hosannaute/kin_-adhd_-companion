@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.*
 import app.kin.features.KinViewModel
+import kotlinx.coroutines.flow.first
 
 private data class Destination(val route: String, val title: String, val icon: ImageVector)
 
@@ -36,9 +37,6 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0) {
                     Destination("more", "More", Icons.Outlined.MoreHoriz))
                 val entry by nav.currentBackStackEntryAsState()
                 fun go(route: String) { nav.navigate(route) { launchSingleTop = true; popUpTo("home") { saveState = true }; restoreState = true } }
-                LaunchedEffect(requestedRoute, requestId) {
-                    requestedRoute?.takeIf { it in listOf("tasks", "focus", "more") }?.let { go(it) }
-                }
                 Scaffold(snackbarHost = { SnackbarHost(snackbar) }, bottomBar = {
                     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                         destinations.forEach { dest ->
@@ -56,6 +54,14 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0) {
                         composable("chat") { ChatScreen(vm, pref) }
                         composable("more") { SettingsScreen(vm, pref, { go("focus") }) }
                         composable("focus") { FocusScreen(vm, pref) }
+                    }
+                    LaunchedEffect(requestedRoute, requestId) {
+                        requestedRoute?.takeIf { it in listOf("tasks", "focus", "more") }?.let {
+                            // Scaffold subcomposes its content during layout. Wait for NavHost
+                            // to install its graph rather than racing the first layout pass.
+                            nav.currentBackStackEntryFlow.first()
+                            go(it)
+                        }
                     }
                 }
             }
