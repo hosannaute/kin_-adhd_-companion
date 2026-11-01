@@ -1,0 +1,45 @@
+# Validation record
+
+## Verified toolchain and build
+
+- Installed a full Temurin JDK 17, Gradle 8.13, Android platform 35, build-tools 35.0.0 and platform-tools.
+- The official wrapper JAR was checked against Gradle's published SHA-256; the distribution checksum is pinned. JDK and SDK downloads were checked against official release/repository metadata, with the verified SHA-256 values pinned in the reusable setup script. TLS verification remained enabled.
+- `testDebugUnitTest`: **17 passed, 0 failed, 0 skipped** (9 progression/timing/reminder-policy tests and 8 conversation tests).
+- `assembleDebug`: successful, producing `app/build/outputs/apk/debug/app-debug.apk` (approximately 19 MB).
+- `assembleDebugAndroidTest`: successful, including Room and navigation tests.
+- `lintDebug`: completes successfully. Explicit backup/transfer exclusions and the modifier-order fix are included. One generic DataExtractionRules warning remains despite the manifest referencing the rules; there are no lint errors.
+- `apksigner verify --verbose`: APK verifies with the v2 signature scheme. Package metadata confirms `app.kin.companion`, minimum API 26 and target API 35.
+- `scripts/install-cloud.sh` completed successfully on replay, checking SDK requirements and repeating the unit-test/build/lint workflow using retained dependencies.
+
+## Environment diagnosis
+
+The default command sandbox cannot reach the configured proxy. Supported sandbox escalation made native Git and HTTPS operations work without changing the allowlist or requesting another credential. A successful `git ls-remote` confirmed that the remote repository has no refs. Java needed explicit proxy properties and the existing system Java CA trust; the preinstalled Java 21 was only a runtime, so a full JDK was necessary. These settings are captured in `scripts/cloud-env.sh`.
+
+Use the existing checkout. Cloud tasks are isolated and do not require another worktree.
+
+## Additional static checks
+
+Android XML and GitHub Actions YAML parse successfully. Shell syntax checks pass for the wrapper and cloud scripts. Git whitespace checks are performed before committing. These checks supplement rather than replace Android compilation and tests.
+
+## Device and remote checks
+
+The API 35 Google APIs x86_64 emulator could not respond reliably to property/shell requests under software acceleration, so its instrumentation setup failed before app tests executed. This is not a passing API 35 run.
+
+A lighter API 26 emulator completed boot. The final `connectedDebugAndroidTest` run passed **7 tests, 0 failures, 0 errors, 0 skipped**: six Room/repository tests plus one Compose navigation test. The tests exercise real database reopening, concurrent completion without duplicate XP, snoozing, goal deletion, expired focus recovery with exactly-once XP, reboot interruption without XP, and Home → Tasks → World → Chat → More → Home → Focus navigation.
+
+This host has no `/dev/kvm`. Installation and UI tests were slow, and the emulator's Android System UI displayed an ANR dialog after the first run. This was not a KIN crash; both API 26 instrumentation runs completed successfully. These results do not replace hardware-accelerated API 35 or physical-device acceptance, notification permission checks, or long-running timer/battery testing.
+
+The GitHub Actions workflow builds/uploads an APK and runs emulator tests. Workflow configuration alone is not a successful remote run or a published APK artifact.
+
+## Manual device checklist after a successful build
+
+1. Finish onboarding without permissions or optional fields. Open all five navigation destinations and the Focus screen. Kill/relaunch and verify onboarding stays complete.
+2. Create a task with every field, associate a goal, edit/reschedule it, filter it, snooze it, complete it twice rapidly, and reopen the app. Verify persisted values and a single XP award. Delete a task and verify its reminder is cancelled.
+3. Start a short timer, background the app, rotate, force process recreation without force-stop, change wall time, pause/resume, and finish early. Verify real elapsed countdown, accurate pause, no early-completion XP, and exactly one reward for a naturally completed session. Force-stop explicitly suspends Android jobs until the app is launched again.
+4. Reboot during a running timer: it should be recorded as interrupted without XP. Reboot while paused: its saved remaining time should be resumable. Confirm behavior on multiple vendors.
+5. Deny notification permission. Repeat task, timer and chat flows; no crash should occur. Enable notifications later in More. Schedule a reminder and allow Android's inexact delivery window; inspect notification tap navigation and quiet hours. Repeat with battery saver and notification channel disabled.
+6. Complete tasks/goals across evolution thresholds; reopen and verify stage/XP. Repeated completion must not farm XP. Delete memories and goals and verify XP stays earned.
+7. Use “I can't start,” edit the proposed steps, save them, and verify task notes after restart. Test chat with empty task/goal lists and delete the conversation.
+8. Check dark mode, reduced motion, 200% font size, landscape, compact screens, TalkBack labels and targets. Capture real runtime screenshots only after these checks.
+
+Overlay and usage-monitoring device checks must be added when those services are implemented.

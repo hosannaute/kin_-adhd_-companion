@@ -1,0 +1,61 @@
+package app.kin.ui
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.*
+import app.kin.features.KinViewModel
+
+private data class Destination(val route: String, val title: String, val icon: ImageVector)
+
+@Composable
+fun KinApp(vm: KinViewModel, initialRoute: String?) {
+    val preferences by vm.preferences.collectAsStateWithLifecycle()
+    val pref = preferences
+    KinTheme(pref?.darkMode ?: false) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            if (pref == null) Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                CircularProgressIndicator()
+            } else if (!pref.onboarded) {
+                Onboarding(vm, pref)
+            } else {
+                val nav = rememberNavController()
+                val snackbar = remember { SnackbarHostState() }
+                val error by vm.error.collectAsStateWithLifecycle()
+                LaunchedEffect(error) { error?.let { snackbar.showSnackbar(it); vm.clearError() } }
+                val destinations = listOf(Destination("home", "Home", Icons.Outlined.Home),
+                    Destination("tasks", "Tasks", Icons.Outlined.CheckCircle),
+                    Destination("world", "World", Icons.Outlined.Landscape),
+                    Destination("chat", "Chat", Icons.Outlined.ChatBubbleOutline),
+                    Destination("more", "More", Icons.Outlined.MoreHoriz))
+                val entry by nav.currentBackStackEntryAsState()
+                fun go(route: String) { nav.navigate(route) { launchSingleTop = true; popUpTo("home") { saveState = true }; restoreState = true } }
+                Scaffold(snackbarHost = { SnackbarHost(snackbar) }, bottomBar = {
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                        destinations.forEach { dest ->
+                            NavigationBarItem(selected = entry?.destination?.route == dest.route,
+                                onClick = { go(dest.route) }, icon = { Icon(dest.icon, dest.title) },
+                                label = { Text(dest.title) })
+                        }
+                    }
+                }) { padding ->
+                    NavHost(nav, startDestination = initialRoute?.takeIf { it in listOf("tasks", "focus") } ?: "home",
+                        modifier = Modifier.padding(padding)) {
+                        composable("home") { HomeScreen(vm, pref, { go("tasks") }, { go("focus") }, { go("more") }) }
+                        composable("tasks") { TasksScreen(vm, { go("focus") }) }
+                        composable("world") { WorldScreen(vm, pref) }
+                        composable("chat") { ChatScreen(vm, pref) }
+                        composable("more") { SettingsScreen(vm, pref, { go("focus") }) }
+                        composable("focus") { FocusScreen(vm, pref) }
+                    }
+                }
+            }
+        }
+    }
+}
