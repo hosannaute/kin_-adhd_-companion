@@ -288,7 +288,8 @@ class BreakCycleTest {
             val policy = shell("settings get global hidden_api_policy")
             try {
                 shell("settings put global hidden_api_policy 1")
-                automation.adoptShellPermissionIdentity("android.permission.REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL")
+                automation.adoptShellPermissionIdentity("android.permission.REVOKE_POST_NOTIFICATIONS_WITHOUT_KILL",
+                    "android.permission.REVOKE_RUNTIME_PERMISSIONS")
                 val manager = app.getSystemService("permission")
                 manager.javaClass.getMethod("revokePostNotificationPermissionWithoutKillForTest",
                     String::class.java, Int::class.javaPrimitiveType).invoke(manager, app.packageName, android.os.Process.myUid() / 100_000)
