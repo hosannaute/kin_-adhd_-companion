@@ -3,8 +3,8 @@
 ## 0.3 offline planner validation
 
 - `testDebugUnitTest`: **36 passed, 0 failed, 0 skipped**, including nine recurrence cases for missed dates, weekly anchors, month ends, leap years and daylight-saving changes.
-- Debug APK and instrumentation APK compile. The new device scenarios cover schema 1 → 2 migration, concurrent recurring completion/skip, subtask persistence, native schedule pickers and real notification PendingIntents. API 26/35 execution is pending; compilation is not a device pass.
-- `lintDebug` completes successfully. Final artifact verification and exact device/CI outcomes will be recorded after the complete suite runs.
+- Debug APK and instrumentation APK compile. The new device scenarios cover schema 1 → 2 migration, concurrent recurring completion/skip, subtask persistence, native schedule pickers and real notification PendingIntents. The first CI run passed all 26 scenarios on API 26. API 35 reported one transient missing-Compose-root failure during notification activity switching; the wait now tolerates an absent root while retaining its timeout and screen assertions. Final API 26/35 execution is pending.
+- `lintDebug`: **0 errors and 0 warnings**. The 0.3 APK signature verifies with the existing published certificate; package version is 0.3.0/code 3, min API 26/target 35. Its merged manifest has no Internet permission and its DEX contains no instrumentation fixture. Final CI outcomes will be recorded after the complete suite runs.
 - Behavior, upgrade semantics and limits are described in [OFFLINE_PLANNER.md](OFFLINE_PLANNER.md).
 
 ## 0.2 floating companion validation

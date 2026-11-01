@@ -15,6 +15,8 @@ import app.kin.KinApplication
 import app.kin.MainActivity
 import app.kin.ReminderActivity
 import app.kin.data.*
+import androidx.work.WorkManager
+import androidx.work.WorkInfo
 import kotlinx.coroutines.runBlocking
 import org.junit.*
 import org.junit.Assert.*
@@ -49,14 +51,15 @@ class ReminderActionsTest {
         scenario = ActivityScenario.launch(MainActivity::class.java)
         expect("Hello, dreamer")
     }
-    private fun expect(text: String) { compose.waitUntil(30_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
+    private fun expect(text: String) { compose.waitUntil(30_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() } }
     private fun post(task: Task): Notification {
         Notifications.task(app, task)
         compose.waitUntil(15_000) { notifications.activeNotifications.any { it.tag == Notifications.taskTag(task.id) } }
         return notifications.activeNotifications.single { it.tag == Notifications.taskTag(task.id) }.notification
     }
     private suspend fun create(title: String): Task {
-        app.repository.saveTask(Task(title = title, minutes = 5, description = "Preserve my notes"))
+        app.repository.saveTask(Task(title = title, minutes = 5, description = "Preserve my notes",
+            reminder = true, scheduledAt = System.currentTimeMillis() + 3_600_000))
         return app.database.dao().allTasks().single { it.title == title }
     }
     @Test fun actualStartPendingIntentOpensFocusForItsTaskAndDoesNotDuplicateSession() = runBlocking<Unit> {
@@ -85,6 +88,8 @@ class ReminderActionsTest {
         compose.waitUntil(45_000) { runBlocking { app.database.dao().task(first.id)!!.snoozeCount == 1 } }
         assertTrue(app.database.dao().task(first.id)!!.scheduledAt >= before + 600_000)
         compose.waitUntil(15_000) { notifications.activeNotifications.none { it.tag == Notifications.taskTag(first.id) } }
+        compose.waitUntil(15_000) { WorkManager.getInstance(app).getWorkInfosForUniqueWork("task:${first.id}")
+            .get().any { it.state == WorkInfo.State.ENQUEUED } }
         assertTrue(notifications.activeNotifications.any { it.tag == Notifications.taskTag(second.id) })
     }
     @Test fun notificationOptionsTargetTheCorrectTaskAndExposeRescheduleAndSkip() = runBlocking<Unit> {
@@ -95,9 +100,9 @@ class ReminderActionsTest {
         val secondOptions = post(second).actions.single { it.title.toString() == "Options" }.actionIntent
         firstOptions.send()
         expect("Make it smaller")
-        compose.waitUntil(15_000) { compose.onAllNodes(hasText("First adventure") and hasAnyAncestor(isDialog())).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15_000) { compose.onAllNodes(hasText("First adventure") and hasAnyAncestor(isDialog())).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         secondOptions.send()
-        compose.waitUntil(15_000) { compose.onAllNodes(hasText("Second adventure") and hasAnyAncestor(isDialog())).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15_000) { compose.onAllNodes(hasText("Second adventure") and hasAnyAncestor(isDialog())).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         compose.onNodeWithText("Reschedule or edit").performClick()
         compose.onNodeWithText("Task name").assertTextContains("Second adventure")
         compose.onNodeWithText("Cancel").performClick()
@@ -124,7 +129,7 @@ class ReminderActionsTest {
         app.repository.skipTask(task.id)
         start.send()
         expect("A little focus")
-        compose.waitUntil(15_000) { compose.onAllNodesWithText("This adventure is already finished or was deleted.").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("This adventure is already finished or was deleted.").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         assertNull(app.database.dao().currentFocus())
     }
 }

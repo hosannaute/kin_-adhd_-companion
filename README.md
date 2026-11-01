@@ -3,7 +3,7 @@
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
-**Status: native Android 0.3 development build with recurring tasks, actionable subtasks, reminder actions and an optional floating companion.** Build/test evidence is recorded in VALIDATION.md. Newer Android and physical-device acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
+**Status: native Android 0.3 development build with recurring tasks, actionable subtasks, reminder actions and an optional floating companion.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
 
 ## Download
 
@@ -78,7 +78,7 @@ For the managed Linux cloud environment, `scripts/install-cloud.sh` installs a c
 ./gradlew lintDebug
 ```
 
-Tests cover evolution boundaries, rewards, countdown math, snooze bounds, quiet hours, offline responses, actual Room persistence after reopening, concurrent exactly-once task completion, goal deletion, snoozing, and navigation across major screens. The suite now also tests app-time accounting, cooldowns, actual overlay attachment, quiet-hour hiding/resuming, notification stopping, permission revocation and permission-settings availability. Current counts and platform limits are recorded in VALIDATION.md. See [validation evidence](docs/VALIDATION.md) for device-test status and the manual checks still needed for background timers, notification denial, reboot, battery restrictions, large fonts, and accessibility.
+Tests cover evolution boundaries, rewards, countdown math, snooze bounds, quiet hours, offline responses, recurrence boundaries, actual Room persistence after reopening, concurrent exactly-once task completion, goal deletion, snoozing, schema migration, actionable steps, real notification actions, and navigation across major screens. The suite now also tests app-time accounting, cooldowns, actual overlay attachment, quiet-hour hiding/resuming, notification stopping, permission revocation and permission-settings availability. Current counts and platform limits are recorded in VALIDATION.md. See [validation evidence](docs/VALIDATION.md) for device-test status and the manual checks still needed for background timers, notification denial, reboot, battery restrictions, large fonts, and accessibility.
 
 ## GitHub Actions and APK download
 

@@ -1,6 +1,8 @@
 package app.kin.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -57,7 +59,7 @@ fun TaskOptions(vm: KinViewModel, task: Task, onDismiss: () -> Unit, onEdit: () 
             confirmButton = { TextButton(onClick = { vm.action { vm.repository.skipTask(task.id); onDismiss() } }) { Text("Skip occurrence") } },
             dismissButton = { TextButton(onClick = { skipping = false }) { Text("Keep it") } })
     } else AlertDialog(onDismissRequest = onDismiss, title = { Text(task.title) }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (task.resolved) Text("This adventure is already ${if (task.skipped) "skipped" else "completed"}.") else {
                 TextButton(onClick = { vm.reminderStart(task.id); onDismiss(); openFocus() }) { Text("Start focus") }
                 TextButton(onClick = { vm.action { vm.repository.snooze(task.id); onDismiss() } }) { Text("Snooze for 10 minutes") }

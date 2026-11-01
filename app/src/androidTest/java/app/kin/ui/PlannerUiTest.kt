@@ -33,7 +33,7 @@ class PlannerUiTest {
         app.database.dao().allTasks().forEach { app.repository.deleteTask(it.id) }
     }
     private fun launchTasks() = ActivityScenario.launch<MainActivity>(Intent(app, MainActivity::class.java).putExtra("route", "tasks"))
-    private fun expect(text: String) { compose.waitUntil(20_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
+    private fun expect(text: String) { compose.waitUntil(20_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() } }
     private fun back() {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         automation.injectInputEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK), true)
