@@ -1,6 +1,19 @@
 # Validation record
 
-## Verified toolchain and build
+## 0.2 floating companion validation
+
+- `testDebugUnitTest`: **27 passed, 0 failed, 0 skipped**, including ten usage-session/cooldown cases.
+- Debug APK and instrumentation APK assemble successfully. The checked-in 0.2 APK includes the activity-intent routing and navigation-readiness fixes.
+- `lintDebug`: **0 errors and 0 warnings**. Explicit legacy backup rules accompany Android 12+ extraction rules. The one scoped protected-permission exception documents the supported user-controlled Usage access AppOp.
+- APK signature verifies; its certificate matches published 0.1, and the Room database version remains 1. An uninstall is not needed for this update.
+- The hardware CI matrix runs **13 Android scenarios on each of API 26 and API 35**. The authoritative outcome for the current revision is in [PR #2 checks](https://github.com/hosannaute/kin_-adhd_-companion/pull/2/checks) and the [Android workflow](https://github.com/hosannaute/kin_-adhd_-companion/actions/workflows/android.yml). A suite definition or started job is not a pass; assess the completed results for the exact head revision.
+- Those scenarios cover persisted tasks/goals/focus, navigation, repeated notification intents, overlay permission denial/revocation, a real WindowManager attachment, quiet-hour hiding/reattachment, notification stopping, and a real one-minute selected-app intervention returning to Tasks.
+- The external scrollable test activity lives only in the separate instrumentation APK. It uses actual Android UsageStats foreground events; production code has no fixture or fabricated usage data. Compose UI frames are advanced for rendering while SystemClock still measures a real minute.
+- The SDK installer used by CI is pinned and checksum-verified, and was exercised locally. JUnit failure annotations expose failing case details on PR checks.
+
+Local software-emulator attempts encountered System UI ANRs, and overlapping local commands were cancelled and excluded from readiness evidence. The isolated hardware CI jobs provide the device acceptance record. Physical-device/OEM behavior, long-use battery observations, notification denial on Android 13+, and restricted screens still need the manual checks in FLOATING_COMPANION.md. Android can intentionally hide overlays on sensitive screens; KIN does not bypass that policy.
+
+## 0.1 baseline: verified toolchain and build
 
 - Installed a full Temurin JDK 17, Gradle 8.13, Android platform 35, build-tools 35.0.0 and platform-tools.
 - The official wrapper JAR was checked against Gradle's published SHA-256; the distribution checksum is pinned. JDK and SDK downloads were checked against official release/repository metadata, with the verified SHA-256 values pinned in the reusable setup script. TLS verification remained enabled.
@@ -42,4 +55,4 @@ The GitHub Actions workflow builds/uploads an APK and runs emulator tests. Workf
 7. Use “I can't start,” edit the proposed steps, save them, and verify task notes after restart. Test chat with empty task/goal lists and delete the conversation.
 8. Check dark mode, reduced motion, 200% font size, landscape, compact screens, TalkBack labels and targets. Capture real runtime screenshots only after these checks.
 
-Overlay and usage-monitoring device checks must be added when those services are implemented.
+For 0.2 overlay permissions, timing, privacy, controls and the physical-device checklist, see FLOATING_COMPANION.md.

@@ -11,11 +11,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.*
 import app.kin.features.KinViewModel
+import kotlinx.coroutines.flow.first
 
 private data class Destination(val route: String, val title: String, val icon: ImageVector)
 
 @Composable
-fun KinApp(vm: KinViewModel, initialRoute: String?) {
+fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0) {
     val preferences by vm.preferences.collectAsStateWithLifecycle()
     val pref = preferences
     KinTheme(pref?.darkMode ?: false) {
@@ -45,7 +46,7 @@ fun KinApp(vm: KinViewModel, initialRoute: String?) {
                         }
                     }
                 }) { padding ->
-                    NavHost(nav, startDestination = initialRoute?.takeIf { it in listOf("tasks", "focus") } ?: "home",
+                    NavHost(nav, startDestination = "home",
                         modifier = Modifier.padding(padding)) {
                         composable("home") { HomeScreen(vm, pref, { go("tasks") }, { go("focus") }, { go("more") }) }
                         composable("tasks") { TasksScreen(vm, { go("focus") }) }
@@ -53,6 +54,14 @@ fun KinApp(vm: KinViewModel, initialRoute: String?) {
                         composable("chat") { ChatScreen(vm, pref) }
                         composable("more") { SettingsScreen(vm, pref, { go("focus") }) }
                         composable("focus") { FocusScreen(vm, pref) }
+                    }
+                    LaunchedEffect(requestedRoute, requestId) {
+                        requestedRoute?.takeIf { it in listOf("tasks", "focus", "more") }?.let {
+                            // Scaffold subcomposes its content during layout. Wait for NavHost
+                            // to install its graph rather than racing the first layout pass.
+                            nav.currentBackStackEntryFlow.first()
+                            go(it)
+                        }
                     }
                 }
             }

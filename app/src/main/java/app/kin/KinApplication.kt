@@ -9,6 +9,7 @@ import app.kin.services.Scheduler
 class KinApplication : Application() {
     val database by lazy { Room.databaseBuilder(this, KinDatabase::class.java, "kin.db").build() }
     val preferences by lazy { Preferences(this) }
+    val companionMode by lazy { CompanionModePreferences(this) }
     val scheduler by lazy { Scheduler(this) }
     val repository by lazy { KinRepository(this, database, scheduler) }
     override fun onCreate() {

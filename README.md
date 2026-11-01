@@ -3,13 +3,13 @@
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
-**Status: initial native Android implementation.** A debug APK builds, 17 unit tests and 7 Android 8 device tests pass, and lint completes. Newer Android and physical-device acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
+**Status: native Android 0.2 development build with an optional floating companion and local app-time check-ins.** Build/test evidence is recorded in VALIDATION.md. Newer Android and physical-device acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
 
 ## Download
 
-[Download KIN 0.1 debug APK](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/heads/main/downloads/KIN-debug.apk) · Android 8.0 or later.
+[Download KIN 0.2 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
 
-This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). This APK corresponds to source commit `4dbba3f`; later builds from source may differ. Known missing features are listed below and in the roadmap.
+This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). The checked-in APK is built from this branch's app source; subsequent documentation-only commits do not change its code. It uses the same signing certificate and database version as 0.1 for in-place updates. Known missing features are listed below and in the roadmap.
 
 ## Implemented in source
 
@@ -21,9 +21,10 @@ This is an early debug build, not a production release. Android may ask you to a
 - An original Canvas-rendered creature with breathing, blinking, waving, sleeping, and celebration poses; six visible evolution stages. Reduced motion freezes animations. A lightweight painted-vector world gains a cottage and flowers with progression.
 - Offline guided chat with contextual templates, emotional shortcuts, conversation history, and honest disclosure that it is not AI or mental healthcare. “I can't start” offers small steps that can be edited and saved to a task, rest, and short focus sessions.
 - WorkManager task reminders and focus-completion work; optional notification permission; quiet hours; a global task-reminder pause; dark mode and companion naming in DataStore. Android may delay background notifications.
+- Optional draggable WindowManager companion with the same original creature renderer, expansion/collapse, quiet-hour and lock-screen hiding, saved position, and persistent Pause/Stop controls. Optional selected-app foreground-time reminders with explicit Usage access, configurable thresholds and snoozing; all processing is local. See [how to enable it and what it measures](docs/FLOATING_COMPANION.md).
 - No registration, ads, analytics, cloud provider, API keys, or network permission. Local Android backup is disabled. Uninstalling deletes data; there is no export yet.
 
-Floating overlays, usage monitoring, recurring tasks, and several advanced requirements remain unimplemented. Compilation and unit checks do not establish all Android lifecycle and device behavior.
+Recurring tasks, advanced task reminders, additional world progression, and several other requirements remain unimplemented. Overlay and usage-monitoring behavior on newer Android/OEM phones still requires acceptance testing. Compilation and unit checks do not establish all Android lifecycle and device behavior.
 
 ## Technology and architecture
 
@@ -37,7 +38,7 @@ app/src/main/java/app/kin/
   data/       Room entities, DAO, database, repository, preferences
   domain/     XP, evolution, countdown math, quiet hours, offline responses
   features/   ViewModel; manual application-scoped dependency injection
-  services/   WorkManager scheduler and notifications
+  services/   WorkManager, notifications, floating service and usage polling
   ui/         Native screens, theme, original creature and landscape rendering
 ```
 
@@ -76,7 +77,7 @@ For the managed Linux cloud environment, `scripts/install-cloud.sh` installs a c
 ./gradlew lintDebug
 ```
 
-Tests cover evolution boundaries, rewards, countdown math, snooze bounds, quiet hours, offline responses, actual Room persistence after reopening, concurrent exactly-once task completion, goal deletion, snoozing, and navigation across major screens. All 17 domain unit tests and all 7 API 26 instrumentation tests pass. See [validation evidence](docs/VALIDATION.md) for device-test status and the manual checks still needed for background timers, notification denial, reboot, battery restrictions, large fonts, and accessibility.
+Tests cover evolution boundaries, rewards, countdown math, snooze bounds, quiet hours, offline responses, actual Room persistence after reopening, concurrent exactly-once task completion, goal deletion, snoozing, and navigation across major screens. The suite now also tests app-time accounting, cooldowns, actual overlay attachment, quiet-hour hiding/resuming, notification stopping, permission revocation and permission-settings availability. Current counts and platform limits are recorded in VALIDATION.md. See [validation evidence](docs/VALIDATION.md) for device-test status and the manual checks still needed for background timers, notification denial, reboot, battery restrictions, large fonts, and accessibility.
 
 ## GitHub Actions and APK download
 
@@ -88,9 +89,12 @@ After a workflow succeeds, open the run under **Actions → Android debug APK** 
 
 - `POST_NOTIFICATIONS`: requested only in More when the user chooses to enable notifications. Denial leaves tasks, chat, progression, and the timer usable. System notification settings can be opened there too.
 - `RECEIVE_BOOT_COMPLETED`: used by the WorkManager dependency to restore scheduled work. KIN does not auto-launch an activity after reboot.
-- No overlay, usage access, accessibility service, exact alarm, microphone, Internet, storage, or location permission is requested by KIN.
+- `SYSTEM_ALERT_WINDOW`: optional Settings permission for the user-started floating companion. Denial leaves core features usable.
+- `PACKAGE_USAGE_STATS`: optional Settings/AppOps access for app-time reminders, separately enabled after selecting apps. It does not identify scrolling or content types.
+- `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SPECIAL_USE`: the explicitly started companion service and its ongoing control notification. It does not restart automatically after reboot/process death.
+- No accessibility service, exact alarm, microphone, Internet, storage, or location permission is requested by KIN.
 
-WorkManager contributes normal `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, and `FOREGROUND_SERVICE` permissions plus its internal non-exported receiver permission in the merged manifest. KIN does not start a foreground service or acquire its own wake lock in this version.
+WorkManager contributes normal `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, and `FOREGROUND_SERVICE` permissions plus its internal non-exported receiver permission in the merged manifest. The optional floating mode starts its declared foreground service. KIN does not acquire its own wake lock.
 
 Reminders use deferrable WorkManager jobs, not exact alarms. Quiet-hour task reminders are skipped rather than deferred. This build provides one scheduled notification per task, with snooze from the task editor; notification action buttons, firm mode, and reminder escalation are not implemented.
 
@@ -100,4 +104,4 @@ No runtime screenshots are included because no app screenshots were captured dur
 
 ## Remaining work
 
-See [ROADMAP.md](docs/ROADMAP.md) for honest acceptance status, including real overlays and usage monitoring, production artwork, advanced reminders, recurring tasks, more world unlocks, additional creature motions, accessibility/device validation, and release preparation. This early version is not a complete implementation of the master specification.
+See [ROADMAP.md](docs/ROADMAP.md) for honest acceptance status, including newer-device overlay/usage acceptance, production artwork, advanced reminders, recurring tasks, more world unlocks, additional creature motions, accessibility/device validation, and release preparation. This early version is not a complete implementation of the master specification.

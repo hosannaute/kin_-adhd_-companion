@@ -54,7 +54,7 @@ fun Onboarding(vm: KinViewModel, pref: UserPreferences) {
                 }
                 Text("Each task has its own reminder switch. Quiet hours start at 22:00 and end at 08:00. No pressure and no escalating alerts.")
             }
-            6 -> Text("Everything works offline. Notification permission is optional; you can enable it in More when you're ready. No overlay or usage permissions are requested in this early version.")
+            6 -> Text("Everything works offline. Notifications, the floating companion, and app-time reminders are optional. You can enable them and choose permissions in More when you're ready.")
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(onClick = {
