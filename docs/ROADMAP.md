@@ -36,17 +36,17 @@ The supplied KIN master specification and six-screen image guide the project. In
 | Requirement | Current evidence |
 | --- | --- |
 | Android project builds | Debug APK and test APK assemble successfully |
-| Main screens navigate | Navigation instrumentation test passes on API 26 |
-| Create/complete/persist tasks | Room persistence and completion tests pass on API 26 |
+| Main screens navigate | Navigation instrumentation tests pass on API 26 and 35 |
+| Create/complete/persist tasks | Persistence, recurring completion/skip, migration and subtask tests pass on API 26 and 35 |
 | Focus timer and persistence | Clock unit tests and recovery/reward device tests pass; background/real-device acceptance pending |
-| Scheduled reminders | WorkManager implementation; untested and inexact |
+| Scheduled reminders | WorkManager implementation; notification actions and snooze scheduling pass API 26/35; background delivery remains inexact |
 | Animated companion | Native Canvas implementation; main-screen navigation exercised on API 26; visual/motion audit pending |
-| Persistent XP/evolution | Transactional Room implementation; exactly-once reward tests pass on API 26 |
+| Persistent XP/evolution | Transactional Room implementation; exactly-once reward tests pass on API 26 and 35 |
 | Floating companion | Real overlay and controls; API 26/35 CI covers windows, permissions, quiet hours and stop controls; physical-device acceptance remains |
 | Usage monitoring | Local UsageStats app-time check-ins; policy tests and a real one-minute cross-app CI scenario; physical-phone/battery checks remain |
 | Disable overlays/reminders | Task reminders have a global switch; overlay Stop controls and notification Pause/Stop implemented |
-| “I can't start” actionable support | Implemented; template tests pass; full UI acceptance pending |
-| Offline core | No runtime Internet permission; local database/navigation tests pass on API 26 |
+| “I can't start” actionable support | Template tests and task-specific checklist UI scenarios pass on API 26 and 35 |
+| Offline core | No runtime Internet permission; database/navigation tests pass on API 26 and 35 |
 | Actions produces debug APK | Build job succeeded and uploads APK artifacts; current full check status is linked in VALIDATION.md |
 
 There is no release-completion claim. Complete modern-device and battery acceptance before treating background services as production-ready.
