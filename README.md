@@ -82,7 +82,7 @@ Tests cover evolution boundaries, rewards, countdown math, snooze bounds, quiet 
 
 [The Android workflow](.github/workflows/android.yml) configures Java and the Android SDK, runs unit tests, builds a debug APK, and uploads `KIN-debug-apk`. A second job runs database/navigation instrumentation tests on an API 35 emulator. Test reports are uploaded separately. Jobs use read-only repository permissions and no private signing keys.
 
-After the branch is pushed and a workflow succeeds, open the run under **Actions → Android debug APK** and download the APK artifact. You can also trigger the workflow manually. This workflow has not run yet; no published artifact or download link exists.
+After a workflow succeeds, open the run under **Actions → Android debug APK** and download its APK artifact. You can also trigger the workflow manually. Remote workflow results have not been verified from this environment. The tested debug APK linked above is published directly in `downloads/`; Actions artifacts are separate.
 
 ## Permissions
 
