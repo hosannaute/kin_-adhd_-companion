@@ -43,6 +43,7 @@ class FocusPipTest {
     private var previousFlags = 0
     private var fullScreenHeight = 0
     private var lastNativeClick = "none"
+    private var lastMenu = emptyList<String>()
 
     private fun shell(command: String) {
         automation.executeShellCommand(command).use { descriptor ->
@@ -57,7 +58,7 @@ class FocusPipTest {
                 val visible = nodes()
                 val own = visible.filter { it.packageName == app.packageName }.mapNotNull { it.text ?: it.contentDescription }.take(20)
                 val system = visible.filter { it.packageName?.toString()?.contains("systemui") == true }.mapNotNull { it.text ?: it.contentDescription }.take(30)
-                fail("Timed out. PiP=${if (::activity.isInitialized) isPinned() else false}, bounds=${pipBounds()}, coordination=${PipVisibility.visible.value}, last click=$lastNativeClick; KIN=$own; System UI=$system")
+                fail("Timed out. PiP=${if (::activity.isInitialized) isPinned() else false}, lifecycle=${if (::activity.isInitialized) activity.lifecycle.currentState else null}, bounds=${pipBounds()}, coordination=${PipVisibility.visible.value}, last click=$lastNativeClick; KIN=$own; System UI=$system; last menu=$lastMenu")
             }
             compose.waitForIdle()
             SystemClock.sleep(100)
@@ -91,23 +92,56 @@ class FocusPipTest {
     }
     private fun clickNative(label: String, vararg ids: String) {
         var lastTap = 0L
+        var previousBounds: Rect? = null
+        var stableSince = 0L
         await {
-            var node = nodes().firstOrNull {
-                (it.contentDescription?.toString()?.equals(label, true) == true ||
-                    it.text?.toString()?.equals(label, true) == true || ids.any { id -> it.viewIdResourceName?.endsWith(":id/$id") == true })
+            // This is Android's native PiP dismiss accessibility action, also used by TalkBack.
+            // It avoids depending on OEM-specific X-button labels and menu layout.
+            val root = if (label == "Dismiss") automation.windows.firstOrNull {
+                it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.root?.packageName == app.packageName
+            }?.root else null
+            if (root?.actionList?.any { it.id == AccessibilityNodeInfo.AccessibilityAction.ACTION_DISMISS.id } == true &&
+                root.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_DISMISS.id)) {
+                lastNativeClick = "Native PiP ACTION_DISMISS"
+                return@await true
             }
+            val all = nodes()
+            val menu = all.filter { it.packageName?.toString()?.contains("systemui") == true }
+                .mapNotNull { (it.text ?: it.contentDescription)?.toString() }
+            if (menu.any { it.contains("focus", true) || it.contains("Close", true) || it.contains("Expand", true) }) lastMenu = menu
+            fun matches(value: CharSequence?): Boolean = value?.toString()?.let {
+                it.equals(label, true) || (label == "Dismiss" && it.contains("Close", true))
+            } == true
+            var node = all.firstOrNull { matches(it.contentDescription) || matches(it.text) ||
+                ids.any { id -> it.viewIdResourceName?.endsWith(":id/$id") == true } }
             while (node != null && !node.isClickable) node = node.parent
             if (node != null) {
                 val bounds = Rect(); node.getBoundsInScreen(bounds)
-                lastNativeClick = "$label, package=${node.packageName}, id=${node.viewIdResourceName}, bounds=$bounds"
-                tap(bounds.exactCenterX(), bounds.exactCenterY())
-                true
+                if (bounds != previousBounds) { previousBounds = Rect(bounds); stableSince = SystemClock.elapsedRealtime() }
+                if (!bounds.isEmpty && SystemClock.elapsedRealtime() - stableSince >= 500) {
+                    lastNativeClick = "$label, package=${node.packageName}, id=${node.viewIdResourceName}, bounds=$bounds"
+                    tap(bounds.exactCenterX(), bounds.exactCenterY())
+                    true
+                } else false
             } else {
-                if (SystemClock.elapsedRealtime() - lastTap > 1_500) {
+                previousBounds = null
+                if (isPinned() && SystemClock.elapsedRealtime() - lastTap > 6_000) {
                     pipBounds()?.let { tap(it.exactCenterX(), it.exactCenterY()); lastTap = SystemClock.elapsedRealtime() }
                 }
                 false
             }
+        }
+    }
+    private fun dismiss() {
+        clickNative("Dismiss", "dismiss_button")
+        await { !PipVisibility.visible.value }
+        await {
+            var closed = false
+            instrumentation.runOnMainSync {
+                closed = activity.isFinishing || activity.isDestroyed ||
+                    !activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+            }
+            closed
         }
     }
     private fun isPinned(): Boolean {
@@ -157,6 +191,7 @@ class FocusPipTest {
     @After fun cleanup() = runBlocking<Unit> {
         FloatingCompanionService.stop(app)
         scenario?.close()
+        if (automation.rootInActiveWindow?.packageName == app.packageName + ".test") shell("input keyevent 4")
         await { !PipVisibility.visible.value }
         app.database.dao().currentFocus()?.let { app.repository.stopFocus(it.id) }
         app.database.dao().allTasks().forEach { app.repository.deleteTask(it.id) }
@@ -231,8 +266,7 @@ class FocusPipTest {
         enter()
         await { !FloatingCompanionService.status.value.visible }
         assertTrue(FloatingCompanionService.status.value.running)
-        clickNative("Dismiss", "dismiss_button")
-        await { !PipVisibility.visible.value }
+        dismiss()
         await { FloatingCompanionService.status.value.visible }
         val current = app.database.dao().currentFocus()!!
         assertEquals(id, current.id); assertTrue(current.running)
@@ -275,8 +309,7 @@ class FocusPipTest {
         assertFalse(app.repository.refreshFocus(id))
         assertEquals(xp + 15, app.database.dao().companion().first()!!.xp)
         await { nodes().any { it.text?.toString() == "+15 XP · Well done" } }
-        clickNative("Dismiss", "dismiss_button")
-        await { !PipVisibility.visible.value }
+        dismiss()
         assertTrue(FloatingCompanionService.status.value.running)
         assertFalse(FloatingCompanionService.status.value.visible)
         assertEquals("Paused for 15 minutes", FloatingCompanionService.status.value.message)
