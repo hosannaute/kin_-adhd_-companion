@@ -45,8 +45,8 @@ open class MainActivity : ComponentActivity() {
         })[KinViewModel::class.java]
         pip = FocusPipController(this, application as KinApplication, savedInstanceState, vm::reportError)
         setContent {
-            val compact by pip.compact.collectAsStateWithLifecycle()
-            val focusState by pip.state.collectAsStateWithLifecycle()
+            val compact = pip.compact.collectAsStateWithLifecycle()
+            val focusState = pip.state.collectAsStateWithLifecycle()
             KinApp(vm, routeRequest?.first, routeRequest?.second ?: 0, taskEntry,
                 compact, focusState, pip::enter, pip::openSettings)
         }

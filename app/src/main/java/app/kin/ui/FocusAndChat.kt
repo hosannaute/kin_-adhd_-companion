@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,7 +40,7 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
     Box(Modifier.fillMaxSize()) {
         WorldLandscape(night = true, modifier = Modifier.fillMaxSize(), unlocked = 2)
         Box(Modifier.fillMaxSize().background(Color(0xFF101D32).copy(alpha=.55f)))
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), horizontalAlignment = Alignment.CenterHorizontally,
+        LazyColumn(Modifier.fillMaxSize().testTag("focus_screen"), contentPadding = PaddingValues(20.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item { Text("A little focus", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
             item { Text(session?.taskTitle ?: "You don't have to do everything. Just be here.", color = Color(0xFFDEE7F2)) }

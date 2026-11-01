@@ -22,7 +22,7 @@ private data class Destination(val route: String, val title: String, val icon: I
 
 @Composable
 fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEntry: TaskEntry? = null,
-           compact: Boolean = false, timer: PipFocusState = PipFocusState(), enterPip: () -> Unit = {}, pipSettings: () -> Unit = {}) {
+           compact: State<Boolean>, timer: State<PipFocusState>, enterPip: () -> Unit, pipSettings: () -> Unit) {
     val preferences by vm.preferences.collectAsStateWithLifecycle()
     val pref = preferences
     KinTheme(pref?.darkMode ?: false) {
@@ -46,9 +46,9 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                 fun go(route: String) { nav.navigate(route) { launchSingleTop = true; popUpTo("home") { saveState = true }; restoreState = true } }
                 Box(Modifier.fillMaxSize()) {
                     // Keep the NavHost installed while pinned so expanding returns to the same route.
-                    Scaffold(modifier = if (compact) Modifier.size(0.dp).clearAndSetSemantics { } else Modifier.fillMaxSize(),
-                        snackbarHost = { if (!compact) SnackbarHost(snackbar) }, bottomBar = {
-                        if (!compact) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                    Scaffold(modifier = if (compact.value) Modifier.size(0.dp).clearAndSetSemantics { } else Modifier.fillMaxSize(),
+                        snackbarHost = { if (!compact.value) SnackbarHost(snackbar) }, bottomBar = {
+                        if (!compact.value) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                             destinations.forEach { dest ->
                                 NavigationBarItem(selected = entry?.destination?.route == dest.route,
                                     onClick = { go(dest.route) }, icon = { Icon(dest.icon, dest.title) },
@@ -64,7 +64,7 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                             composable("world") { WorldScreen(vm, pref) }
                             composable("chat") { ChatScreen(vm, pref) }
                             composable("more") { SettingsScreen(vm, pref, { go("focus") }) }
-                            composable("focus") { if (!compact) FocusScreen(vm, pref, timer, enterPip, pipSettings) }
+                            composable("focus") { if (!compact.value) FocusScreen(vm, pref, timer.value, enterPip, pipSettings) }
                         }
                         LaunchedEffect(requestedRoute, requestId) {
                             requestedRoute?.takeIf { it in listOf("tasks", "focus", "more") }?.let {
@@ -79,7 +79,7 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                             }
                         }
                     }
-                    if (compact) FocusPipContent(vm, pref, timer)
+                    if (compact.value) FocusPipContent(vm, pref, timer)
                 }
             }
         }

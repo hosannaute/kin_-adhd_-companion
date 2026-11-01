@@ -51,7 +51,12 @@ class FocusPipTest {
     private fun await(timeout: Long = 30_000, condition: () -> Boolean) {
         val end = SystemClock.elapsedRealtime() + timeout
         while (!condition()) {
-            if (SystemClock.elapsedRealtime() >= end) fail("Timed out. Visible UI: ${nodes().mapNotNull { it.text ?: it.contentDescription }.take(60)}")
+            if (SystemClock.elapsedRealtime() >= end) {
+                val visible = nodes()
+                val own = visible.filter { it.packageName == app.packageName }.mapNotNull { it.text ?: it.contentDescription }.take(20)
+                val system = visible.filter { it.packageName?.toString()?.contains("systemui") == true }.mapNotNull { it.text ?: it.contentDescription }.take(30)
+                fail("Timed out. PiP=${if (::activity.isInitialized) isPinned() else false}, bounds=${pipBounds()}, coordination=${PipVisibility.visible.value}; KIN=$own; System UI=$system")
+            }
             compose.waitForIdle()
             SystemClock.sleep(100)
         }
@@ -76,16 +81,18 @@ class FocusPipTest {
         val down = SystemClock.uptimeMillis()
         listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP).forEach { action ->
             val event = MotionEvent.obtain(down, SystemClock.uptimeMillis(), action, x, y, 0)
+            event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
             try { assertTrue(automation.injectInputEvent(event, true)) } finally { event.recycle() }
         }
     }
     private fun clickNative(label: String, vararg ids: String) {
         var lastTap = 0L
         await {
-            val node = nodes().firstOrNull {
-                it.isClickable && (it.contentDescription?.toString()?.equals(label, true) == true ||
+            var node = nodes().firstOrNull {
+                (it.contentDescription?.toString()?.equals(label, true) == true ||
                     it.text?.toString()?.equals(label, true) == true || ids.any { id -> it.viewIdResourceName?.endsWith(":id/$id") == true })
             }
+            while (node != null && !node.isClickable) node = node.parent
             if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_CLICK) else {
                 if (SystemClock.elapsedRealtime() - lastTap > 1_500) {
                     pipBounds()?.let { tap(it.exactCenterX(), it.exactCenterY()); lastTap = SystemClock.elapsedRealtime() }
@@ -110,7 +117,7 @@ class FocusPipTest {
         expect("A little focus")
     }
     private fun enter() {
-        expect("Open Picture-in-Picture")
+        compose.onNodeWithTag("focus_screen").performScrollToNode(hasText("Open Picture-in-Picture", substring = true))
         compose.onNodeWithText("Open Picture-in-Picture", substring = true).performScrollTo().assertIsEnabled().performClick()
         await { isPinned() }
         await { PipVisibility.visible.value }
@@ -224,14 +231,14 @@ class FocusPipTest {
         val id = createSession()
         appOp("PICTURE_IN_PICTURE", "ignore")
         launchFocus()
-        expect("Allow Picture-in-Picture")
+        compose.onNodeWithTag("focus_screen").performScrollToNode(hasText("Allow Picture-in-Picture"))
         compose.onNodeWithText("Allow Picture-in-Picture").performScrollTo().performClick()
         await { automation.rootInActiveWindow?.packageName?.toString()?.contains("settings") == true }
         assertFalse(PipVisibility.visible.value)
         assertEquals(id, app.database.dao().currentFocus()!!.id)
         appOp("PICTURE_IN_PICTURE", "allow")
         shell("input keyevent 4")
-        expect("Open Picture-in-Picture")
+        await { compose.onAllNodesWithText("Open Picture-in-Picture", substring = true).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         enter()
         assertEquals(id, app.database.dao().currentFocus()!!.id)
     }

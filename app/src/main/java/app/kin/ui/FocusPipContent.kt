@@ -19,7 +19,8 @@ import app.kin.features.KinViewModel
 import app.kin.features.PipFocusState
 
 @Composable
-fun FocusPipContent(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState) {
+fun FocusPipContent(vm: KinViewModel, pref: UserPreferences, timerState: State<PipFocusState>) {
+    val timer = timerState.value
     val companion by vm.companion.collectAsStateWithLifecycle()
     val session = timer.session
     val finished = session?.ended == true
