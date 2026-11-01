@@ -45,7 +45,7 @@ fun KinApp(vm: KinViewModel, initialRoute: String?) {
                         }
                     }
                 }) { padding ->
-                    NavHost(nav, startDestination = initialRoute?.takeIf { it in listOf("tasks", "focus") } ?: "home",
+                    NavHost(nav, startDestination = initialRoute?.takeIf { it in listOf("tasks", "focus", "more") } ?: "home",
                         modifier = Modifier.padding(padding)) {
                         composable("home") { HomeScreen(vm, pref, { go("tasks") }, { go("focus") }, { go("more") }) }
                         composable("tasks") { TasksScreen(vm, { go("focus") }) }

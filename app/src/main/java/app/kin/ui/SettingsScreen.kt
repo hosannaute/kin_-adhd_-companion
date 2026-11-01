@@ -71,12 +71,11 @@ fun SettingsScreen(vm: KinViewModel, pref: UserPreferences, openFocus: () -> Uni
             Text("Equal hours disable quiet hours. Reminders falling in quiet hours are skipped. Android may delay reminders; exact alarms and escalating reminders are not in this version.", style = MaterialTheme.typography.bodySmall)
         } }
         item { Button(onClick = openFocus, modifier = Modifier.fillMaxWidth()) { Text("Open focus timer") } }
+        item { FloatingSettings(vm) }
         item { SoftCard {
             Text("Private, offline, yours", fontWeight = FontWeight.Bold)
             Text("No accounts, ads, analytics, or cloud chat. Your tasks, goals, and messages stay on this device. Android backup is disabled; uninstalling deletes your data.")
-            Text("Floating companion & app usage", fontWeight = FontWeight.Bold)
-            Text("Not implemented in this version. KIN does not request overlay or usage access, and does not monitor other apps.")
-            Text("KIN 0.1 · Early development build", style = MaterialTheme.typography.labelMedium)
+            Text("KIN 0.2 · Early development build", style = MaterialTheme.typography.labelMedium)
         } }
     }
 }

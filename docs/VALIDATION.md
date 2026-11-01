@@ -1,6 +1,15 @@
 # Validation record
 
-## Verified toolchain and build
+## 0.2 floating companion validation
+
+- The app and instrumentation APKs compile. All **27 unit tests pass**, including ten usage-session/cooldown cases.
+- An initial API 26 run passed all ten then-current device tests, including a real WindowManager overlay, permission denial/revocation and notification stopping.
+- Expanded device checks add standard Usage access Settings resolution, quiet-hour detach/reattach, and a real one-minute selected-app intervention. Final results are recorded when that run completes; they are not implied by the earlier ten-test run.
+- CI now targets API 26 and API 35 with hardware acceleration. Its remote results remain pending until observed.
+- The 0.2 debug certificate matches the published 0.1 APK, and the Room database schema version is unchanged.
+- The manifest includes an explicit legacy backup rules resource as well as Android 12+ extraction rules. The usage-permission lint exception is restricted to its documented user-controlled Settings/AppOps path.
+
+## 0.1 baseline: verified toolchain and build
 
 - Installed a full Temurin JDK 17, Gradle 8.13, Android platform 35, build-tools 35.0.0 and platform-tools.
 - The official wrapper JAR was checked against Gradle's published SHA-256; the distribution checksum is pinned. JDK and SDK downloads were checked against official release/repository metadata, with the verified SHA-256 values pinned in the reusable setup script. TLS verification remained enabled.
@@ -42,4 +51,4 @@ The GitHub Actions workflow builds/uploads an APK and runs emulator tests. Workf
 7. Use “I can't start,” edit the proposed steps, save them, and verify task notes after restart. Test chat with empty task/goal lists and delete the conversation.
 8. Check dark mode, reduced motion, 200% font size, landscape, compact screens, TalkBack labels and targets. Capture real runtime screenshots only after these checks.
 
-Overlay and usage-monitoring device checks must be added when those services are implemented.
+For 0.2 overlay permissions, timing, privacy, controls and the physical-device checklist, see FLOATING_COMPANION.md.
