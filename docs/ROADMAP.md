@@ -23,6 +23,8 @@ The supplied KIN master specification and six-screen image guide the project. In
 - Offline planner (0.3): daily/weekly/monthly repeats, persistent subtasks, native schedule pickers, Start/Snooze/Options notifications, task-specific breakdown/reschedule/skip and a schema 1 → 2 migration. See [behavior and limits](OFFLINE_PLANNER.md).
 - Focus Picture-in-Picture (0.4): native pinned companion/timer, pause/resume/finish actions, expand/dismiss behavior, settings recovery and overlay coordination. See [behavior and device-validation scope](PICTURE_IN_PICTURE.md).
 
+- Break/focus cycle (0.5): persistent planned breaks, large return-to-task window, goal-linked snooze, explicit focus-duration choice, notification fallback and cycle completion. See [behavior and acceptance scope](BREAK_FOCUS_CYCLE.md).
+
 ## Still unimplemented
 
 - Newer Android/OEM overlay and foreground-service acceptance, real selected-app threshold observations, and physical-device battery testing. Local overlay and UsageStats implementations are present; see FLOATING_COMPANION.md. No scrolling gesture/content classification is claimed.

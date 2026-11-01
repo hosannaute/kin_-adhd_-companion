@@ -1,5 +1,10 @@
 # Validation record
 
+## 0.5 break/focus cycle validation
+
+- **42 unit tests pass**, including six break-clock/message cases. App and test APKs compile. The device suite defines **47 scenarios per API**, including six new end-to-end cycle cases, eight repository/concurrency cases and a schema 2 → 3 migration case. Device execution is pending.
+- Final lint, APK verification and completed API 26/35 CI results will be recorded after acceptance. See [BREAK_FOCUS_CYCLE.md](BREAK_FOCUS_CYCLE.md) for behavior and limits.
+
 ## 0.4 Picture-in-Picture validation
 
 - Tested app/test revision: [`848e102`](https://github.com/hosannaute/kin_-adhd_-companion/commit/848e102d6698da50d4f3562c9f9801891e12b783). [CI run 41345733936](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41345733936) completed successfully: build, API 26 and API 35 jobs all passed. The publication follow-up only updates documentation and the APK; tested app/test source is unchanged.

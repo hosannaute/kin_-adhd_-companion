@@ -16,13 +16,15 @@ import app.kin.features.KinViewModel
 import app.kin.domain.TaskEntry
 import app.kin.domain.TaskEntryAction
 import app.kin.features.PipFocusState
+import app.kin.domain.BreakEntry
 import kotlinx.coroutines.flow.first
 
 private data class Destination(val route: String, val title: String, val icon: ImageVector)
 
 @Composable
 fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEntry: TaskEntry? = null,
-           compact: State<Boolean>, timer: State<PipFocusState>, enterPip: () -> Unit, pipSettings: () -> Unit) {
+           compact: State<Boolean>, timer: State<PipFocusState>, enterPip: () -> Unit, pipSettings: () -> Unit,
+           breakEntry: BreakEntry? = null) {
     val preferences by vm.preferences.collectAsStateWithLifecycle()
     val pref = preferences
     KinTheme(pref?.darkMode ?: false) {
@@ -80,6 +82,7 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                         }
                     }
                     if (compact.value) FocusPipContent(vm, pref, timer)
+                    else BreakCycleHost(vm, pref, breakEntry, requestId, { go("focus") })
                 }
             }
         }

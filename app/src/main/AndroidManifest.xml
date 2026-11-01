@@ -16,6 +16,10 @@
     <application android:name=".KinApplication" android:allowBackup="false" android:fullBackupContent="@xml/backup_rules" android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="KIN" android:icon="@drawable/ic_kin" android:supportsRtl="true"
         android:theme="@style/Theme.Kin">
+        <service android:name=".services.BreakTimerService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started break countdown with persistent pause/stop controls and an optional permission-granted companion window prompting a return to a chosen task" />
+        </service>
         <service android:name=".services.FloatingCompanionService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-started visible floating productivity companion with optional local selected-app usage reminders and persistent pause/stop controls" />
@@ -30,5 +34,6 @@
         <activity android:name=".ReminderActivity" android:exported="false" android:supportsPictureInPicture="true"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation" />
         <receiver android:name=".services.ReminderActionReceiver" android:exported="false" />
+        <receiver android:name=".services.BreakActionReceiver" android:exported="false" />
     </application>
 </manifest>

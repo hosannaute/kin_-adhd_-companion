@@ -37,6 +37,15 @@ interface KinDao {
     @Query("SELECT COUNT(*) FROM focus_sessions WHERE completed = 1") fun sessionCount(): Flow<Int>
     @Insert suspend fun insertSession(session: FocusSession): Long
     @Update suspend fun updateSession(session: FocusSession)
+    @Query("SELECT * FROM focus_sessions ORDER BY id DESC LIMIT 1") fun latestFocus(): Flow<FocusSession?>
+    @Query("SELECT * FROM break_sessions WHERE phase IN ('RUNNING','PAUSED','DUE','FOCUSING') ORDER BY id DESC LIMIT 1")
+    fun activeBreak(): Flow<BreakSession?>
+    @Query("SELECT * FROM break_sessions WHERE phase IN ('RUNNING','PAUSED','DUE','FOCUSING') ORDER BY id DESC LIMIT 1")
+    suspend fun currentBreak(): BreakSession?
+    @Query("SELECT * FROM break_sessions WHERE id = :id") suspend fun breakSession(id: Long): BreakSession?
+    @Query("SELECT * FROM break_sessions WHERE focusSessionId = :id AND phase = 'FOCUSING'") suspend fun breakForFocus(id: Long): BreakSession?
+    @Insert suspend fun insertBreak(value: BreakSession): Long
+    @Update suspend fun updateBreak(value: BreakSession)
     @Query("SELECT * FROM messages ORDER BY id") fun messages(): Flow<List<ConversationMessage>>
     @Query("SELECT * FROM messages ORDER BY id DESC LIMIT 1") suspend fun lastMessage(): ConversationMessage?
     @Insert suspend fun insertMessage(message: ConversationMessage)
@@ -47,10 +56,17 @@ interface KinDao {
 }
 
 @Database(entities = [Task::class, PersonalGoal::class, CompanionState::class,
-    FocusSession::class, ConversationMessage::class, Achievement::class, Subtask::class], version = 2, exportSchema = true)
+    FocusSession::class, ConversationMessage::class, Achievement::class, Subtask::class, BreakSession::class], version = 3, exportSchema = true)
 abstract class KinDatabase : RoomDatabase() {
     abstract fun dao(): KinDao
     companion object {
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS break_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, taskId INTEGER, taskTitle TEXT NOT NULL, goalTitle TEXT NOT NULL, durationMillis INTEGER NOT NULL, remainingMillis INTEGER NOT NULL, startedElapsed INTEGER NOT NULL, bootCount INTEGER NOT NULL, dueAtWall INTEGER NOT NULL, phase TEXT NOT NULL, snoozeCount INTEGER NOT NULL, revision INTEGER NOT NULL, focusSessionId INTEGER, alertedRevision INTEGER NOT NULL, FOREIGN KEY(taskId) REFERENCES tasks(id) ON UPDATE NO ACTION ON DELETE SET NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_break_sessions_taskId ON break_sessions(taskId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_break_sessions_focusSessionId ON break_sessions(focusSessionId)")
+            }
+        }
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE tasks ADD COLUMN repeatRule TEXT NOT NULL DEFAULT 'NONE'")

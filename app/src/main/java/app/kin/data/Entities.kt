@@ -58,3 +58,14 @@ data class Achievement(
     @PrimaryKey val key: String, val title: String,
     val createdAt: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "break_sessions", foreignKeys = [ForeignKey(entity = Task::class,
+    parentColumns = ["id"], childColumns = ["taskId"], onDelete = ForeignKey.SET_NULL)],
+    indices = [Index("taskId"), Index("focusSessionId")])
+data class BreakSession(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val taskId: Long?, val taskTitle: String, val goalTitle: String = "",
+    val durationMillis: Long, val remainingMillis: Long, val startedElapsed: Long,
+    val bootCount: Int, val dueAtWall: Long, val phase: String = "RUNNING",
+    val snoozeCount: Int = 0, val revision: Int = 0, val focusSessionId: Long? = null, val alertedRevision: Int = -1
+)

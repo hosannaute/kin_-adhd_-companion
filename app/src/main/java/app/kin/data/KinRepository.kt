@@ -117,14 +117,19 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
 
     suspend fun startFocus(minutes: Int, task: Task?): Long {
         val id = db.withTransaction {
-            require(dao.currentFocus() == null) { "Finish or stop the current session first." }
-            if (task != null) require(dao.task(task.id)?.resolved == false) { "This adventure is already finished or was deleted." }
-            val duration = minutes.coerceIn(1, 180) * 60_000L
-            dao.insertSession(FocusSession(taskId = task?.id, taskTitle = task?.title ?: "A little time for you",
-                durationMillis = duration, remainingMillis = duration, startedElapsed = SystemClock.elapsedRealtime(), bootCount = boot()))
+            require(dao.currentBreak() == null) { "Use Start task on your break timer, or stop the break first." }
+            insertFocus(minutes, task)
         }
         scheduler.focus(id, minutes.coerceIn(1, 180) * 60_000L)
         return id
+    }
+    /** Caller holds the Room transaction, including a break → focus transition when applicable. */
+    internal suspend fun insertFocus(minutes: Int, task: Task?): Long {
+        require(dao.currentFocus() == null) { "Finish or stop the current session first." }
+        if (task != null) require(dao.task(task.id)?.resolved == false) { "This adventure is already finished or was deleted." }
+        val duration = minutes.coerceIn(1, 180) * 60_000L
+        return dao.insertSession(FocusSession(taskId = task?.id, taskTitle = task?.title ?: "A little time for you",
+            durationMillis = duration, remainingMillis = duration, startedElapsed = SystemClock.elapsedRealtime(), bootCount = boot()))
     }
 
     suspend fun pauseFocus(id: Long) {
@@ -150,7 +155,10 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
         refreshFocus(id)
         db.withTransaction {
             val session = dao.session(id) ?: return@withTransaction
-            if (!session.ended) dao.updateSession(session.copy(ended = true, running = false, remainingMillis = remaining(session)))
+            if (!session.ended) {
+                dao.updateSession(session.copy(ended = true, running = false, remainingMillis = remaining(session)))
+                finishBreakCycle(id, completed = false)
+            }
         }
         scheduler.cancelFocus(id)
     }
@@ -161,13 +169,20 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
         if (session.ended || !session.running) return@withTransaction false
         if (session.bootCount != boot()) {
             dao.updateSession(session.copy(ended = true, running = false))
+            finishBreakCycle(id, completed = false)
             return@withTransaction false
         }
         if (remaining(session) > 0) return@withTransaction false
         dao.updateSession(session.copy(ended = true, completed = true, running = false, remainingMillis = 0))
+        finishBreakCycle(id, completed = true)
         award(Rewards.FOCUS)
         dao.insertAchievement(Achievement("focus:$id", "Completed a ${session.durationMillis / 60_000} minute focus session"))
         true
+    }
+    private suspend fun finishBreakCycle(focusId: Long, completed: Boolean) {
+        dao.breakForFocus(focusId)?.let {
+            dao.updateBreak(it.copy(phase = if (completed) "COMPLETED" else "STOPPED", revision = it.revision + 1))
+        }
     }
 
     suspend fun send(message: String, context: ConversationContext) {

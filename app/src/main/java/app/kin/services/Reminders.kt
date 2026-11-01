@@ -16,6 +16,7 @@ import app.kin.MainActivity
 import app.kin.ReminderActivity
 import app.kin.R
 import app.kin.data.Task
+import app.kin.data.BreakSession
 import app.kin.data.resolved
 import app.kin.domain.TaskEntryAction
 import androidx.core.net.toUri
@@ -44,6 +45,12 @@ class Scheduler(private val context: Context) {
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS).build())
     }
     fun cancelFocus(id: Long) { work.cancelUniqueWork("focus:$id") }
+    fun breakTimer(value: BreakSession, delay: Long) {
+        work.enqueueUniqueWork("break:${value.id}", ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<BreakReminderWorker>().setInputData(workDataOf("breakId" to value.id, "revision" to value.revision))
+                .setInitialDelay(delay.coerceAtLeast(0), TimeUnit.MILLISECONDS).build())
+    }
+    fun cancelBreak(id: Long) { work.cancelUniqueWork("break:$id"); BreakNotifications.cancel(context, id) }
 }
 
 class KinWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
@@ -88,7 +95,7 @@ object Notifications {
         manager.activeNotifications.filter { it.tag == null && it.id == taskId.toInt() &&
             it.id != Int.MAX_VALUE && it.notification.channelId == "kin_gentle" }.forEach { manager.cancel(it.id) }
     }
-    private fun allowed(context: Context): Boolean =
+    fun allowed(context: Context): Boolean =
         (android.os.Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context,
             Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) &&
             NotificationManagerCompat.from(context).areNotificationsEnabled()
