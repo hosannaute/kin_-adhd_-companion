@@ -7,7 +7,7 @@ import app.kin.services.Notifications
 import app.kin.services.Scheduler
 
 class KinApplication : Application() {
-    val database by lazy { Room.databaseBuilder(this, KinDatabase::class.java, "kin.db").build() }
+    val database by lazy { Room.databaseBuilder(this, KinDatabase::class.java, "kin.db").addMigrations(KinDatabase.MIGRATION_1_2).build() }
     val preferences by lazy { Preferences(this) }
     val companionMode by lazy { CompanionModePreferences(this) }
     val scheduler by lazy { Scheduler(this) }

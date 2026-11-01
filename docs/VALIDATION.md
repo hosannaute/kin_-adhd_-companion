@@ -1,5 +1,14 @@
 # Validation record
 
+## 0.3 offline planner validation
+
+- Tested app/test revision: [`262c41d`](https://github.com/hosannaute/kin_-adhd_-companion/commit/262c41d7f268416d1263900269296a11ca2e689d). [CI run 41336235123](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41336235123) completed successfully: build, API 26 and API 35 jobs all passed. Subsequent documentation-only commits do not change the tested app or published APK.
+- `testDebugUnitTest`: **36 passed, 0 failed, 0 skipped**, including nine recurrence cases for missed dates, weekly anchors, month ends, leap years and daylight-saving changes.
+- **26 Android scenarios passed on each of API 26 and API 35**. New coverage includes schema 1 → 2 migration with existing task/goal/XP/chat/focus records, concurrent recurring completion/skip, reset steps on the next occurrence, subtask persistence/deletion, native schedule pickers, task-specific breakdown, and actual notification Start/Snooze/Options PendingIntents. Snooze is checked for a persisted due time and replacement WorkManager work. Stale/closed-task actions and exported-launcher auto-start rejection are also covered. The existing overlay, real one-minute app-usage, persistence and navigation regressions remain enabled.
+- Debug APK and instrumentation APK assemble successfully. `lintDebug`: **0 errors and 0 warnings**.
+- The checked-in 0.3 APK signature verifies with the existing published certificate; package version is 0.3.0/code 3, min API 26/target 35. Its merged manifest has no Internet permission and its DEX contains no instrumentation fixture. A fresh public GitHub download matched `downloads/KIN-debug.apk.sha256` and the locally built APK.
+- Behavior, upgrade semantics and limits are described in [OFFLINE_PLANNER.md](OFFLINE_PLANNER.md). Physical-phone/OEM battery behavior, broad TalkBack/large-font acceptance and real background delivery under Android restrictions still need manual validation; these emulator results are not a production-release claim.
+
 ## 0.2 floating companion validation
 
 - `testDebugUnitTest`: **27 passed, 0 failed, 0 skipped**, including ten usage-session/cooldown cases.
@@ -52,7 +61,7 @@ The GitHub Actions workflow builds/uploads an APK and runs emulator tests. Workf
 4. Reboot during a running timer: it should be recorded as interrupted without XP. Reboot while paused: its saved remaining time should be resumable. Confirm behavior on multiple vendors.
 5. Deny notification permission. Repeat task, timer and chat flows; no crash should occur. Enable notifications later in More. Schedule a reminder and allow Android's inexact delivery window; inspect notification tap navigation and quiet hours. Repeat with battery saver and notification channel disabled.
 6. Complete tasks/goals across evolution thresholds; reopen and verify stage/XP. Repeated completion must not farm XP. Delete memories and goals and verify XP stays earned.
-7. Use “I can't start,” edit the proposed steps, save them, and verify task notes after restart. Test chat with empty task/goal lists and delete the conversation.
+7. Use “I can't start,” edit the proposed steps, save them, and verify the saved checklist and unchanged task notes after restart. Test chat with empty task/goal lists and delete the conversation.
 8. Check dark mode, reduced motion, 200% font size, landscape, compact screens, TalkBack labels and targets. Capture real runtime screenshots only after these checks.
 
 For 0.2 overlay permissions, timing, privacy, controls and the physical-device checklist, see FLOATING_COMPANION.md.

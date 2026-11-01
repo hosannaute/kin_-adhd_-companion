@@ -1,5 +1,7 @@
 package app.kin.ui
 
+import app.kin.data.resolved
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -99,7 +101,7 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences) {
                         supportingText = { Text("Selected duration: $minutes minutes") })
                     Text("Focus on")
                     FilterChip(taskId == null, { taskId = null }, label = { Text("Just a little time for me") })
-                    tasks.filter { !it.completed }.forEach { task ->
+                    tasks.filter { !it.resolved }.forEach { task ->
                         FilterChip(taskId == task.id, { taskId = task.id }, label = { Text(task.title) })
                     }
                 } }
