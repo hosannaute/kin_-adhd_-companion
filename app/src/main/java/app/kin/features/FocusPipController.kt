@@ -65,7 +65,10 @@ class FocusPipController(private val activity: ComponentActivity, private val ap
 
     init {
         refreshAvailability()
-        ContextCompat.registerReceiver(activity, receiver, IntentFilter(actionName), ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(activity, receiver, IntentFilter(actionName).apply {
+            // PendingIntent identity includes URI data; an action-only filter rejects it.
+            addDataScheme("kin-pip")
+        }, ContextCompat.RECEIVER_NOT_EXPORTED)
         activity.lifecycle.addObserver(this)
         activity.lifecycleScope.launch {
             activity.repeatOnLifecycle(Lifecycle.State.STARTED) {

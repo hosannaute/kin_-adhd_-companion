@@ -41,6 +41,8 @@ class FocusPipTest {
     private var hadOverlay = false
     private var previousPip = AppOpsManager.MODE_DEFAULT
     private var previousFlags = 0
+    private var fullScreenHeight = 0
+    private var lastNativeClick = "none"
 
     private fun shell(command: String) {
         automation.executeShellCommand(command).use { descriptor ->
@@ -55,7 +57,7 @@ class FocusPipTest {
                 val visible = nodes()
                 val own = visible.filter { it.packageName == app.packageName }.mapNotNull { it.text ?: it.contentDescription }.take(20)
                 val system = visible.filter { it.packageName?.toString()?.contains("systemui") == true }.mapNotNull { it.text ?: it.contentDescription }.take(30)
-                fail("Timed out. PiP=${if (::activity.isInitialized) isPinned() else false}, bounds=${pipBounds()}, coordination=${PipVisibility.visible.value}; KIN=$own; System UI=$system")
+                fail("Timed out. PiP=${if (::activity.isInitialized) isPinned() else false}, bounds=${pipBounds()}, coordination=${PipVisibility.visible.value}, last click=$lastNativeClick; KIN=$own; System UI=$system")
             }
             compose.waitForIdle()
             SystemClock.sleep(100)
@@ -69,7 +71,9 @@ class FocusPipTest {
         val pending = java.util.ArrayDeque<AccessibilityNodeInfo>()
         automation.windows.mapNotNull { it.root }.forEach(pending::add)
         while (pending.isNotEmpty()) {
-            val node = pending.removeFirst(); result += node
+            val node = pending.removeFirst()
+            if (!node.refresh()) continue // PiP accessibility nodes can otherwise retain unfocused text.
+            result += node
             for (i in 0 until node.childCount) node.getChild(i)?.let(pending::add)
         }
         return result
@@ -93,7 +97,12 @@ class FocusPipTest {
                     it.text?.toString()?.equals(label, true) == true || ids.any { id -> it.viewIdResourceName?.endsWith(":id/$id") == true })
             }
             while (node != null && !node.isClickable) node = node.parent
-            if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_CLICK) else {
+            if (node != null) {
+                val bounds = Rect(); node.getBoundsInScreen(bounds)
+                lastNativeClick = "$label, package=${node.packageName}, id=${node.viewIdResourceName}, bounds=$bounds"
+                tap(bounds.exactCenterX(), bounds.exactCenterY())
+                true
+            } else {
                 if (SystemClock.elapsedRealtime() - lastTap > 1_500) {
                     pipBounds()?.let { tap(it.exactCenterX(), it.exactCenterY()); lastTap = SystemClock.elapsedRealtime() }
                 }
@@ -114,6 +123,9 @@ class FocusPipTest {
     private fun launchFocus() {
         scenario = ActivityScenario.launch<MainActivity>(Intent(app, MainActivity::class.java).putExtra("route", "focus"))
         scenario!!.onActivity { activity = it }
+        val screenshot = automation.takeScreenshot()
+        fullScreenHeight = screenshot?.height ?: activity.resources.displayMetrics.heightPixels
+        screenshot?.recycle()
         expect("A little focus")
     }
     private fun enter() {
@@ -123,7 +135,7 @@ class FocusPipTest {
         await { PipVisibility.visible.value }
         await {
             pipBounds()?.let { it.width() > 0 && it.height() > 0 &&
-                it.height() < app.resources.displayMetrics.heightPixels / 2 } == true
+                it.height() < fullScreenHeight / 2 } == true
         }
     }
     @Before fun setup() = runBlocking<Unit> {
@@ -165,7 +177,7 @@ class FocusPipTest {
         await { timer() != null }
         val first = timer()
         val before = app.repository.remaining(app.database.dao().session(id)!!)
-        shell("am start -W -n ${app.packageName}.test/${UsageFixtureActivity::class.java.name}")
+        shell("am start -W -f 0x18000000 -n ${app.packageName}.test/${UsageFixtureActivity::class.java.name}")
         await { nodes().any { it.packageName == app.packageName + ".test" } }
         await { timer() != null && timer() != first }
         assertTrue(isPinned())
