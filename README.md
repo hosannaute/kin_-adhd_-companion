@@ -5,6 +5,12 @@ Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
 **Status: initial native Android implementation.** A debug APK builds, 17 unit tests and 7 Android 8 device tests pass, and lint completes. Newer Android and physical-device acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
 
+## Download
+
+[Download KIN 0.1 debug APK](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/heads/main/downloads/KIN-debug.apk) · Android 8.0 or later.
+
+This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). This APK corresponds to source commit `4dbba3f`; later builds from source may differ. Known missing features are listed below and in the roadmap.
+
 ## Implemented in source
 
 - Seven-step onboarding: meet and name a companion, optional goals and first task, reminder preferences, and an explanation of optional notification access.
