@@ -32,7 +32,7 @@ There is no Internet permission, account or online provider in this implementati
 
 ## Android implementation and validation limits
 
-`FloatingCompanionService` uses `TYPE_APPLICATION_OVERLAY`, a non-focusable window that wraps its content, the same Compose creature renderer as the app, and a lifecycle/saved-state owner for its composition. It requests no accessibility service and never adds a full-screen invisible touch layer. A foreground `specialUse` service declares its user-visible purpose and normal foreground-service permissions for Android 14+; store release still requires platform/store acceptance of that use case.
+`FloatingCompanionService` uses `TYPE_APPLICATION_OVERLAY`, a non-focusable window that wraps its content, the same Compose creature renderer as the app, and a lifecycle/saved-state owner for its composition. It requests no accessibility service and never adds a full-screen invisible touch layer. Android can hide overlays on sensitive screens; KIN respects that restriction. A foreground `specialUse` service declares its user-visible purpose and normal foreground-service permissions for Android 14+; store release still requires platform/store acceptance of that use case.
 
 `PACKAGE_USAGE_STATS` is declared for Android's user-controlled Usage access AppOp. The manifest's one scoped `ProtectedPermissions` lint exception documents this special-access path; the app never tries to obtain a system-only runtime grant. Denied permissions are normal optional states.
 

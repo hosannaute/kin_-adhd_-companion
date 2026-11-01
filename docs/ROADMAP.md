@@ -41,11 +41,11 @@ The supplied KIN master specification and six-screen image guide the project. In
 | Scheduled reminders | WorkManager implementation; untested and inexact |
 | Animated companion | Native Canvas implementation; main-screen navigation exercised on API 26; visual/motion audit pending |
 | Persistent XP/evolution | Transactional Room implementation; exactly-once reward tests pass on API 26 |
-| Floating companion | Real overlay and controls implemented; API 26 window/permission/stop tests exercised; modern-device checks pending |
-| Usage monitoring | Optional local UsageStats app-time check-ins; policy unit tests; real-phone threshold/battery checks pending |
+| Floating companion | Real overlay and controls; API 26/35 CI covers windows, permissions, quiet hours and stop controls; physical-device acceptance remains |
+| Usage monitoring | Local UsageStats app-time check-ins; policy tests and a real one-minute cross-app CI scenario; physical-phone/battery checks remain |
 | Disable overlays/reminders | Task reminders have a global switch; overlay Stop controls and notification Pause/Stop implemented |
 | “I can't start” actionable support | Implemented; template tests pass; full UI acceptance pending |
 | Offline core | No runtime Internet permission; local database/navigation tests pass on API 26 |
-| Actions produces debug APK | Workflow authored; no run or artifact yet |
+| Actions produces debug APK | Build job succeeded and uploads APK artifacts; current full check status is linked in VALIDATION.md |
 
 There is no release-completion claim. Complete modern-device and battery acceptance before treating background services as production-ready.
