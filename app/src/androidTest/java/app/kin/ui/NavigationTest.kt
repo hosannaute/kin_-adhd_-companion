@@ -42,9 +42,12 @@ class NavigationTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             compose.waitUntil(15_000) { compose.onAllNodesWithText("Hello, dreamer").fetchSemanticsNodes().isNotEmpty() }
             fun request(route: String) { scenario.onActivity { activity ->
-                activity.startActivity(Intent(activity, MainActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    .putExtra("route", route))
+                // Retain the launch intent's filter identity so ActivityScenario can
+                // continue observing this same activity after setIntent/onNewIntent.
+                activity.startActivity(Intent(activity.intent).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    putExtra("route", route)
+                })
             } }
             fun expectScreen(title: String) {
                 compose.waitUntil(45_000) { compose.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty() }
