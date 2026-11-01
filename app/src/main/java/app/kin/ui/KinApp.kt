@@ -5,18 +5,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.*
 import app.kin.features.KinViewModel
+import app.kin.domain.TaskEntry
+import app.kin.domain.TaskEntryAction
 import kotlinx.coroutines.flow.first
 
 private data class Destination(val route: String, val title: String, val icon: ImageVector)
 
 @Composable
-fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0) {
+fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEntry: TaskEntry? = null) {
     val preferences by vm.preferences.collectAsStateWithLifecycle()
     val pref = preferences
     KinTheme(pref?.darkMode ?: false) {
@@ -27,6 +30,7 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0) {
                 Onboarding(vm, pref)
             } else {
                 val nav = rememberNavController()
+                var handledRequest by rememberSaveable { mutableIntStateOf(-1) }
                 val snackbar = remember { SnackbarHostState() }
                 val error by vm.error.collectAsStateWithLifecycle()
                 LaunchedEffect(error) { error?.let { snackbar.showSnackbar(it); vm.clearError() } }
@@ -49,7 +53,8 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0) {
                     NavHost(nav, startDestination = "home",
                         modifier = Modifier.padding(padding)) {
                         composable("home") { HomeScreen(vm, pref, { go("tasks") }, { go("focus") }, { go("more") }) }
-                        composable("tasks") { TasksScreen(vm, { go("focus") }) }
+                        composable("tasks") { TasksScreen(vm, { go("focus") },
+                            taskEntry?.takeIf { it.action == TaskEntryAction.OPTIONS }?.taskId, requestId) }
                         composable("world") { WorldScreen(vm, pref) }
                         composable("chat") { ChatScreen(vm, pref) }
                         composable("more") { SettingsScreen(vm, pref, { go("focus") }) }
@@ -60,7 +65,11 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0) {
                             // Scaffold subcomposes its content during layout. Wait for NavHost
                             // to install its graph rather than racing the first layout pass.
                             nav.currentBackStackEntryFlow.first()
-                            go(it)
+                            if (handledRequest != requestId) {
+                                handledRequest = requestId
+                                if (taskEntry?.action == TaskEntryAction.START) vm.reminderStart(taskEntry.taskId)
+                                go(it)
+                            }
                         }
                     }
                 }

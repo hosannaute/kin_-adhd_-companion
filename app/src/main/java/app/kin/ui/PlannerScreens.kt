@@ -31,7 +31,7 @@ fun HomeScreen(vm: KinViewModel, pref: UserPreferences, openTasks: () -> Unit, o
     val stage = Evolution.at(companion?.xp ?: 0)
     var help by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Task?>(null) }
-    val today = tasks.filter { !it.completed && it.today() }.take(3)
+    val today = tasks.filter { !it.resolved && it.today() }.take(3)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Box(Modifier.fillMaxWidth().height(390.dp).clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))) {
@@ -69,15 +69,16 @@ fun HomeScreen(vm: KinViewModel, pref: UserPreferences, openTasks: () -> Unit, o
             Text("Progress is finding your way back.", Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.bodySmall)
         } }
     }
-    editing?.let { task -> TaskEditor(task, goals, { editing = null }, { vm.action { vm.repository.saveTask(it) }; editing = null }) }
+    editing?.let { task -> TaskEditor(task, goals, { editing = null }, { vm.action { vm.repository.saveTask(it); editing = null } }) }
     if (help) CantStartDialog(vm, { help = false }, openFocus)
 }
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-fun TasksScreen(vm: KinViewModel, openFocus: () -> Unit) {
+fun TasksScreen(vm: KinViewModel, openFocus: () -> Unit, requestedTaskId: Long? = null, requestId: Int = 0) {
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     val goals by vm.goals.collectAsStateWithLifecycle()
+    val steps by vm.subtasks.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var query by rememberSaveable { mutableStateOf("") }
     var showAll by rememberSaveable { mutableStateOf(false) }
@@ -85,8 +86,28 @@ fun TasksScreen(vm: KinViewModel, openFocus: () -> Unit) {
     var editing by remember { mutableStateOf<Task?>(null) }
     var deleting by remember { mutableStateOf<Task?>(null) }
     var help by remember { mutableStateOf(false) }
+    var helpTaskId by remember { mutableStateOf<Long?>(null) }
+    var optionsId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var options by remember { mutableStateOf<Task?>(null) }
+    var handledRequest by rememberSaveable { mutableIntStateOf(-1) }
+    LaunchedEffect(requestedTaskId, requestId) {
+        if (requestedTaskId != null && handledRequest != requestId) {
+            handledRequest = requestId
+            optionsId = requestedTaskId
+        }
+    }
+    LaunchedEffect(optionsId) {
+        options = null
+        optionsId?.let { id -> vm.action {
+            val task = vm.repository.dao.task(id)
+            if (optionsId == id) {
+                if (task == null) { optionsId = null; error("This adventure was deleted.") }
+                options = task
+            }
+        } }
+    }
     val filtered = tasks.filter { task ->
-        (when(tab) { 0 -> !task.completed && task.today(); 1 -> !task.completed && !task.today(); else -> task.completed }) &&
+        (when(tab) { 0 -> !task.resolved && task.today(); 1 -> !task.resolved && !task.today(); else -> task.resolved }) &&
             (task.title.contains(query, true) || task.category.contains(query, true))
     }
     val shown = if (tab == 0 && !showAll && query.isEmpty()) filtered.take(3) else filtered
@@ -109,19 +130,26 @@ fun TasksScreen(vm: KinViewModel, openFocus: () -> Unit) {
                 openFocus()
             })
             if (task.description.isNotBlank()) Text(task.description, style = MaterialTheme.typography.bodyMedium)
-            if (task.snoozeCount >= 3 && !task.completed) Text("Starting can be hard. Want to make this smaller?", color = MaterialTheme.colorScheme.primary)
+            TaskSteps(vm, task, steps.filter { it.taskId == task.id })
+            if (!task.resolved) TextButton(onClick = { optionsId = task.id }) { Text("Options for ${task.title}") }
+            if (task.snoozeCount >= 3 && !task.resolved) Text("Starting can be hard. Want to make this smaller?", color = MaterialTheme.colorScheme.primary)
         } }
         if (tab == 0 && filtered.size > 3 && query.isEmpty()) item {
             TextButton(onClick = { showAll = !showAll }) { Text(if (showAll) "Focus on three" else "Show all ${filtered.size} adventures") }
         }
-        item { Button(onClick = { help = true }, Modifier.fillMaxWidth()) { Text("Feeling stuck? I can't start") } }
+        item { Button(onClick = { helpTaskId = null; help = true }, Modifier.fillMaxWidth()) { Text("Feeling stuck? I can't start") } }
     }
-    if (showEditor) TaskEditor(editing, goals, { showEditor = false }, { vm.action { vm.repository.saveTask(it) }; showEditor = false },
+    if (showEditor) TaskEditor(editing, goals, { showEditor = false }, { vm.action { vm.repository.saveTask(it); showEditor = false } },
         onDelete = editing?.let { task -> { deleting = task; showEditor = false } },
-        onSnooze = editing?.let { task -> { vm.action { vm.repository.snooze(task.id) }; showEditor = false } })
+        onSnooze = editing?.let { task -> { vm.action { vm.repository.snooze(task.id); showEditor = false } } })
     deleting?.let { task -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("Delete this adventure?") },
         text = { Text("${task.title} will be removed. Your earned XP stays with you.") },
         confirmButton = { TextButton(onClick = { vm.action { vm.repository.deleteTask(task.id) }; deleting = null }) { Text("Delete") } },
         dismissButton = { TextButton(onClick = { deleting = null }) { Text("Keep it") } }) }
-    if (help) CantStartDialog(vm, { help = false }, openFocus)
+    options?.takeIf { optionsId == it.id }?.let { snapshot ->
+        val task = tasks.firstOrNull { it.id == snapshot.id } ?: snapshot
+        TaskOptions(vm, task, { optionsId = null }, { optionsId = null; editing = task; showEditor = true },
+            { optionsId = null; helpTaskId = task.id; help = true }, openFocus)
+    }
+    if (help) CantStartDialog(vm, { help = false }, openFocus, helpTaskId)
 }

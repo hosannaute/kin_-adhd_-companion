@@ -16,19 +16,20 @@ The supplied KIN master specification and six-screen image guide the project. In
 - Milestone 3: original vector companion, six evolution stages, XP with transactional reward guards.
 - Milestone 4: basic WorkManager notifications, task-editor snooze and rescheduling; optional notification permission and quiet hours.
 - Milestones 5–6 (0.2): optional real WindowManager overlay, foreground controls, app selection and UsageStats check-ins, permission handling, quiet hours and session counters. Newer Android/physical-device acceptance remains open.
-- Milestone 7: offline template conversations and editable small-step suggestions saved into task notes.
+- Milestone 7: offline template conversations and editable small-step suggestions saved as actionable subtasks (0.3); existing task notes are preserved.
 - Milestone 8: a clearing, cottage and flower unlocks, preferences, reduced motion and dark mode.
 - Milestone 9: baseline verification is extended for 0.2 with usage-policy and real-overlay tests, plus an API 26/35 CI matrix. See VALIDATION.md for the exact current outcomes and remaining device limits.
+
+- Offline planner (0.3): daily/weekly/monthly repeats, persistent subtasks, native schedule pickers, Start/Snooze/Options notifications, task-specific breakdown/reschedule/skip and a schema 1 → 2 migration. See [behavior and limits](OFFLINE_PLANNER.md).
 
 ## Still unimplemented
 
 - Newer Android/OEM overlay and foreground-service acceptance, real selected-app threshold observations, and physical-device battery testing. Local overlay and UsageStats implementations are present; see FLOATING_COMPANION.md. No scrolling gesture/content classification is claimed.
-- Recurring/repeating tasks; richer per-task reminder policies; notification actions (start/snooze/breakdown/reschedule/skip); repeated and firm-mode reminders with explicit limits and emergency stop. Precise alarms, if justified, need proper permission and denial flows.
-- Separate actionable subtasks with their own completion; current suggested steps are editable notes on the original task.
+- Richer per-task reminder policies; repeated and firm-mode reminders with explicit limits and emergency stop. Precise alarms, if justified, need proper permission and denial flows.
 - AI provider integration and explicit consent flow. Offline conversation works without one and does not claim AI capability.
 - Walking, waking transitions, richer thinking/encouragement animations, production-quality illustrated environments, interactive pathways/pond/overlook/village unlocks, parallax, configurable sound and intensity beyond reduced motion.
-- Data export/import, complete privacy/data-reset flow, localization, TalkBack and large-font audits, lifecycle/notification UI tests, migration tests and real-device coverage.
-- Full device acceptance, a successful remote Actions run, and release preparation.
+- Data export/import, complete privacy/data-reset flow, localization, TalkBack and large-font audits, broader lifecycle coverage and real-device acceptance.
+- Full physical-device acceptance and production release preparation. Remote Actions evidence is linked in VALIDATION.md.
 
 ## Acceptance checklist
 

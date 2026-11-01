@@ -1,5 +1,12 @@
 # Validation record
 
+## 0.3 offline planner validation
+
+- `testDebugUnitTest`: **36 passed, 0 failed, 0 skipped**, including nine recurrence cases for missed dates, weekly anchors, month ends, leap years and daylight-saving changes.
+- Debug APK and instrumentation APK compile. The new device scenarios cover schema 1 → 2 migration, concurrent recurring completion/skip, subtask persistence, native schedule pickers and real notification PendingIntents. API 26/35 execution is pending; compilation is not a device pass.
+- `lintDebug` completes successfully. Final artifact verification and exact device/CI outcomes will be recorded after the complete suite runs.
+- Behavior, upgrade semantics and limits are described in [OFFLINE_PLANNER.md](OFFLINE_PLANNER.md).
+
 ## 0.2 floating companion validation
 
 - `testDebugUnitTest`: **27 passed, 0 failed, 0 skipped**, including ten usage-session/cooldown cases.
