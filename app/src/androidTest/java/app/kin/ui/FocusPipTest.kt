@@ -73,7 +73,9 @@ class FocusPipTest {
         automation.windows.mapNotNull { it.root }.forEach(pending::add)
         while (pending.isNotEmpty()) {
             val node = pending.removeFirst()
-            if (!node.refresh()) continue // PiP accessibility nodes can otherwise retain unfocused text.
+            // Refresh KIN's unfocused PiP text, rather than synchronously querying every
+            // launcher/System UI node while the native control menu's timeout is running.
+            if (node.packageName == app.packageName && !node.refresh()) continue
             result += node
             for (i in 0 until node.childCount) node.getChild(i)?.let(pending::add)
         }
