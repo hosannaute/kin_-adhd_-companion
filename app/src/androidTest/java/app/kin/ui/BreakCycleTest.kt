@@ -128,6 +128,7 @@ class BreakCycleTest {
         await { !BreakTimerService.status.value.running && !BreakPromptVisibility.visible.value }
         appOp("SYSTEM_ALERT_WINDOW", if (hadOverlay) "allow" else "default")
         appOp("POST_NOTIFICATION", "allow")
+        if (android.os.Build.VERSION.SDK_INT >= 33) automation.grantRuntimePermission(app.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
         val info = automation.serviceInfo; info.flags = previousFlags; automation.serviceInfo = info
     }
 
@@ -202,7 +203,8 @@ class BreakCycleTest {
         snooze.send()
         await { runBlocking { app.database.dao().currentBreak()?.snoozeCount == 1 } }
         snooze.send()
-        await { androidx.work.WorkManager.getInstance(app).getWorkInfosForUniqueWork("break-action:${value.id}:0").get().all { it.state.isFinished } }
+        await { androidx.work.WorkManager.getInstance(app).getWorkInfosForUniqueWork("break-action:${value.id}:0")
+            .get(10, java.util.concurrent.TimeUnit.SECONDS).all { it.state.isFinished } }
         assertEquals(1, app.database.dao().currentBreak()!!.snoozeCount)
         notification.actions.single { it.title.toString() == "Start task" }.actionIntent.send()
         expect("This break changed or ended")
@@ -265,9 +267,24 @@ class BreakCycleTest {
     }
 
     @Test fun deniedWindowAndNotificationsStillRecoverTheDueReminderInApp() = runBlocking<Unit> {
-        appOp("POST_NOTIFICATION", "ignore")
+        val value = begin()
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            // Settings uses the platform's no-kill notification revocation path. A raw
+            // runtime-permission revoke could kill this instrumentation's target process.
+            scenario!!.onActivity { it.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, app.packageName)) }
+            await { automation.rootInActiveWindow?.packageName?.toString()?.contains("settings") == true }
+            await {
+                nodes().firstOrNull { it.packageName?.toString()?.contains("settings") == true &&
+                    it.isCheckable && it.isChecked && it.className?.contains("Switch") == true }
+                    ?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+            }
+            await { !Notifications.allowed(app) }
+            shell("input keyevent 4")
+            expect("Your scrolling break")
+        } else appOp("POST_NOTIFICATION", "ignore")
         assertFalse(Notifications.allowed(app))
-        val value = begin(); anotherApp(); nearExpiry(value.id)
+        anotherApp(); nearExpiry(value.id)
         await { runBlocking { app.database.dao().currentBreak()?.phase == "DUE" } }
         assertFalse(BreakTimerService.status.value.visible)
         assertTrue(notifications.activeNotifications.none { it.tag == "kin.break.${value.id}" && it.id == BreakNotifications.DUE_ID })
