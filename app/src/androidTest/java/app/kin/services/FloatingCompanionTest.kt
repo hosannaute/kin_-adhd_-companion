@@ -117,7 +117,7 @@ class FloatingCompanionTest {
         }
     }
 
-    @Test fun selectedAppForegroundTimeOffersARealCheckInAndReturnsToTasks() = runBlocking {
+    @Test fun selectedAppForegroundTimeOffersARealCheckInAndReturnsToTasks() = runBlocking<Unit> {
         val previous = app.preferences.flow.first()
         val previousMode = app.companionMode.flow.first()
         val wasAllowed = Settings.canDrawOverlays(app)
