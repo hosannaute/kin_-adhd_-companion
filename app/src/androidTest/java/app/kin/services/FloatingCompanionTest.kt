@@ -9,6 +9,12 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsDisplayed
 import app.kin.KinApplication
 import app.kin.MainActivity
 import kotlinx.coroutines.*
@@ -16,10 +22,12 @@ import kotlinx.coroutines.flow.first
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.Before
+import org.junit.Rule
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class FloatingCompanionTest {
+    @get:Rule val compose = createEmptyComposeRule()
     private val app = ApplicationProvider.getApplicationContext<KinApplication>()
     @Before fun allowControlNotificationOnTestDevices() {
         if (android.os.Build.VERSION.SDK_INT >= 33) {
@@ -174,7 +182,16 @@ class FloatingCompanionTest {
                     returnButton = parent
                 }
                 assertTrue(returnButton.performAction(AccessibilityNodeInfo.ACTION_CLICK))
-                await { nodes("Your adventures").isNotEmpty() }
+                await {
+                    var openedTasks = false
+                    InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                        openedTasks = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                            .any { it is MainActivity && it.intent.getStringExtra("route") == "tasks" }
+                    }
+                    openedTasks
+                }
+                compose.waitUntil(45_000) { compose.onAllNodesWithText("Your adventures").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithText("Your adventures").assertIsDisplayed()
             }
         } finally {
             FloatingCompanionService.stop(app)
