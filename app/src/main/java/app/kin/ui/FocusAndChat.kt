@@ -30,6 +30,14 @@ import app.kin.features.PipAvailability
 
 @Composable
 fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, enterPip: () -> Unit, pipSettings: () -> Unit) {
+    val activeBreak by vm.activeBreak.collectAsStateWithLifecycle()
+    val latest by vm.latestFocus.collectAsStateWithLifecycle()
+    var showBreakSetup by rememberSaveable { mutableStateOf(false) }
+    val breakValue = activeBreak
+    if (breakValue != null && breakValue.phase in listOf("RUNNING", "PAUSED", "DUE")) {
+        ActiveBreakScreen(vm, breakValue, { vm.chooseBreakFocus(breakValue) })
+        return
+    }
     val session = timer.session?.takeUnless { it.ended }
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     val companion by vm.companion.collectAsStateWithLifecycle()
@@ -44,6 +52,13 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
             verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item { Text("A little focus", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
             item { Text(session?.taskTitle ?: "You don't have to do everything. Just be here.", color = Color(0xFFDEE7F2)) }
+            if (session == null && activeBreak == null) item { SoftCard {
+                if (latest?.completed == true) {
+                    Text("Focus complete · +15 XP", fontWeight = FontWeight.Bold)
+                    Text("Progress saved. Ready for a little break?")
+                } else Text("Taking a scrolling break? Set a return-to-task reminder.")
+                Button(onClick = { showBreakSetup = true }) { Text(if (latest?.completed == true) "Plan next break" else "Plan a scrolling break") }
+            } }
             item { CompanionArt(Evolution.at(companion?.xp ?: 0), pref.reducedMotion, Modifier.size(170.dp), CreatureMood.SLEEPING) }
             item {
                 val millis = if (session != null) timer.remainingMillis else minutes * 60_000L
@@ -108,6 +123,7 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
                 color = Color(0xFFDFE4EE), style = MaterialTheme.typography.bodySmall) }
         }
     }
+    if (showBreakSetup) BreakSetupDialog(vm, latest?.taskId, { showBreakSetup = false })
 }
 
 @Composable

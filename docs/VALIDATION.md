@@ -1,5 +1,13 @@
 # Validation record
 
+## 0.5 break/focus cycle validation
+
+- Tested app/test revision: [`e1f92d1`](https://github.com/hosannaute/kin_-adhd_-companion/commit/e1f92d1eb9eaa56b81d620f825394b04409c52e8). [CI run 41357705819](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41357705819) completed successfully: build, API 26 and API 35 jobs all passed. The publication follow-up changes only documentation and the APK; tested app/test/build source is unchanged.
+- **42 unit tests pass**, and **47 Android scenarios pass on each of API 26 and API 35**, with **0 failed and 0 skipped**. Completed JUnit totals are exposed directly in each CI check's annotations. The six added end-to-end scenarios exercise the actual large window over a separate app, a goal-linked snooze and repeat reminder, task-specific focus-duration confirmation, pause/recreation/service recovery, quiet hours, real notification PendingIntents and replay guards, denial of both permissions, natural completion XP and the next-break offer. Eight repository/concurrency scenarios and an explicit schema 2 → 3 migration also pass. Existing native PiP, planner, navigation and real one-minute app-usage regressions remain enabled.
+- App and instrumentation APKs assemble. `lintDebug`: **0 errors and 0 warnings**. The UI driver uses root-independent, bounded cross-app polling. Android 13+ notification denial uses the platform's scoped test-only no-kill revocation API with shell test permissions; ordinary permission revocation would terminate the instrumentation target. These helpers are excluded from the production APK.
+- The published debug APK is **0.5.0/code 5**, min API 26/target 35, **19,505,177 bytes**. Its signature verifies against the existing published certificate, and its SHA-256 matches `downloads/KIN-debug.apk.sha256` and the local build. The merged manifest has no Internet permission; DEX contains no instrumentation fixture or permission-test helper. Explicit Room migrations retain existing schema-1/2 data through schema 3.
+- See [BREAK_FOCUS_CYCLE.md](BREAK_FOCUS_CYCLE.md) for behavior and Android limits. Physical-device/OEM battery handling, lock-screen variations, long use, TalkBack and large fonts still need manual acceptance; these hardware-accelerated emulator results are not a production-release claim.
+
 ## 0.4 Picture-in-Picture validation
 
 - Tested app/test revision: [`848e102`](https://github.com/hosannaute/kin_-adhd_-companion/commit/848e102d6698da50d4f3562c9f9801891e12b783). [CI run 41345733936](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41345733936) completed successfully: build, API 26 and API 35 jobs all passed. The publication follow-up only updates documentation and the APK; tested app/test source is unchanged.

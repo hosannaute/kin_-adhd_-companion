@@ -23,8 +23,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests and debug APK
         run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
-      - name: Annotate unit test failures
-        if: failure()
+      - name: Report unit test results
+        if: always()
         run: python3 scripts/report-test-failures.py app/build/test-results/testDebugUnitTest
       - name: Upload test results
         if: always()
@@ -65,8 +65,8 @@ jobs:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
           script: ./gradlew --no-daemon connectedDebugAndroidTest
-      - name: Annotate device test failures
-        if: failure()
+      - name: Report device test results
+        if: always()
         run: python3 scripts/report-test-failures.py app/build/outputs/androidTest-results/connected
       - name: Upload device test reports
         if: always()

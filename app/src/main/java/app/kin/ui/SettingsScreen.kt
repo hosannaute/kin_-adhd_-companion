@@ -75,7 +75,7 @@ fun SettingsScreen(vm: KinViewModel, pref: UserPreferences, openFocus: () -> Uni
         item { SoftCard {
             Text("Private, offline, yours", fontWeight = FontWeight.Bold)
             Text("No accounts, ads, analytics, or cloud chat. Your tasks, goals, and messages stay on this device. Android backup is disabled; uninstalling deletes your data.")
-            Text("KIN 0.4 · Early development build", style = MaterialTheme.typography.labelMedium)
+            Text("KIN 0.5 · Early development build", style = MaterialTheme.typography.labelMedium)
         } }
     }
 }

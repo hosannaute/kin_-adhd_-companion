@@ -3,13 +3,13 @@
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
-**Status: native Android 0.4 development build with native focus Picture-in-Picture, recurring tasks, actionable subtasks, reminder actions and an optional floating companion.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
+**Status: native Android 0.5 development build with a break → reminder → focus cycle, native focus Picture-in-Picture, recurring tasks, actionable subtasks and an optional floating companion.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
 
 ## Download
 
-[Download KIN 0.4 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
+[Download KIN 0.5 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
 
-This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). The checked-in APK is built from this branch's app source; subsequent documentation-only commits do not change its code. It uses the existing signing certificate and an explicit database migration from schema 1 to 2 for in-place updates. Known missing features are listed below and in the roadmap.
+This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). The checked-in APK is built from this branch's app source; subsequent documentation-only commits do not change its code. It uses the existing signing certificate and explicit database migrations from schema 1/2 to 3 for in-place updates. Known missing features are listed below and in the roadmap.
 
 ## Implemented in source
 
@@ -18,6 +18,7 @@ This is an early debug build, not a production release. Android may ask you to a
 - Room-backed task creation, editing, deletion, completion, date/time rescheduling, ten-minute snoozing, category search, goal associations, priority, estimated duration, and per-task reminders. Today shows three pending priority tasks by default; additional tasks remain accessible. Overdue tasks stay in Today.
 - Daily/weekly/monthly recurring tasks, persistent actionable subtasks, native date/time pickers, and task-specific Start/Snooze/Options notifications. Completing or skipping creates one next future occurrence; skipped tasks award no XP. See [offline planner behavior](docs/OFFLINE_PLANNER.md).
 - Locally stored personal goals, motivations, achievements, and companion XP. Completing the same task, focus session, or goal cannot award XP twice. Deleting a goal unlinks its tasks without deleting them. Deleting a memory does not remove earned XP.
+- A separate planned-break timer with a chosen return task/goal, large companion prompt over other apps, goal-linked five-minute snoozing, a focus-duration picker, pause/stop controls and notification fallback. Completed focus offers another break. [Cycle behavior and Android limits](docs/BREAK_FOCUS_CYCLE.md).
 - Focus presets (5, 15, 25, 45 minutes), custom duration (1–180 minutes), pause/resume, task association, and saved completed/interrupted sessions. Monotonic time and a persisted boot count protect active countdown accuracy across process recreation and wall-clock changes. Active sessions are interrupted on reboot without awarding XP; paused sessions can be resumed. Finishing early awards no XP.
 - Native Android Picture-in-Picture for an active or paused focus session, with companion/task/countdown, System UI pause/resume and finish controls, expansion back to Focus, availability/settings handling, and coordination that hides an existing floating overlay. Dismissing PiP preserves the session. See [PiP behavior and limits](docs/PICTURE_IN_PICTURE.md).
 - An original Canvas-rendered creature with breathing, blinking, waving, sleeping, and celebration poses; six visible evolution stages. Reduced motion freezes animations. A lightweight painted-vector world gains a cottage and flowers with progression.
@@ -44,7 +45,7 @@ app/src/main/java/app/kin/
   ui/         Native screens, theme, original creature and landscape rendering
 ```
 
-Repositories own data mutations; the ViewModel exposes observable state. Room transactions guard rewards and session completion. The database is version 2, with both exported schemas and an explicit tested migration from version 1 under `app/schemas`. Add explicit migrations for future schema changes. Destructive migration fallback is intentionally absent.
+Repositories own data mutations; the ViewModel exposes observable state. Room transactions guard rewards and session completion. The database is version 3, with exported schemas and explicit migrations from versions 1 and 2 under `app/schemas`. Add explicit migrations for future schema changes. Destructive migration fallback is intentionally absent.
 
 ## Build
 

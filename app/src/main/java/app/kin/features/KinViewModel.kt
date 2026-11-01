@@ -6,6 +6,7 @@ import app.kin.KinApplication
 import app.kin.data.*
 import app.kin.domain.ConversationContext
 import app.kin.services.Notifications
+import app.kin.domain.BreakEntry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -17,10 +18,16 @@ class KinViewModel(val app: KinApplication) : ViewModel() {
     val subtasks = repository.dao.subtasks().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val companion = repository.dao.companion().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     val focus = repository.dao.activeFocus().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val activeBreak = repository.dao.activeBreak().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val latestFocus = repository.dao.latestFocus().stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val messages = repository.dao.messages().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val achievements = repository.dao.achievements().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val sessionCount = repository.dao.sessionCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
     val preferences = app.preferences.flow.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    private val _breakFocusRequest = MutableStateFlow<BreakEntry?>(null)
+    val breakFocusRequest = _breakFocusRequest.asStateFlow()
+    fun chooseBreakFocus(value: BreakSession) { _breakFocusRequest.value = BreakEntry(value.id, value.revision) }
+    fun clearBreakFocusRequest() { _breakFocusRequest.value = null }
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
     fun clearError() { _error.value = null }

@@ -1,0 +1,211 @@
+package app.kin.ui
+
+import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import androidx.lifecycle.*
+import androidx.lifecycle.compose.*
+import app.kin.data.*
+import app.kin.domain.*
+import app.kin.features.KinViewModel
+import app.kin.services.*
+import kotlinx.coroutines.*
+
+@Composable
+fun BreakPermissions() {
+    val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var overlay by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+    var notifications by remember { mutableStateOf(Notifications.allowed(context)) }
+    val grant = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifications = Notifications.allowed(context) }
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) {
+            overlay = Settings.canDrawOverlays(context); notifications = Notifications.allowed(context)
+        } }
+        lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer) }
+    }
+    Text(if (overlay) "Companion window is allowed." else "Allow the companion window to see a large reminder over other apps.", style = MaterialTheme.typography.bodySmall)
+    if (!overlay) OutlinedButton(onClick = {
+        context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:${context.packageName}".toUri()))
+    }) { Text("Allow companion window") }
+    Text(if (notifications) "Notifications are available as a fallback." else "Notifications are off. Without either permission, return to KIN to see the reminder.",
+        style = MaterialTheme.typography.bodySmall)
+    if (!notifications) OutlinedButton(onClick = {
+        if (android.os.Build.VERSION.SDK_INT >= 33) grant.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        else context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+    }) { Text("Allow break notifications") }
+}
+
+@Composable
+fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: () -> Unit) {
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val goals by vm.goals.collectAsStateWithLifecycle()
+    val pref by vm.preferences.collectAsStateWithLifecycle()
+    var taskId by rememberSaveable { mutableStateOf(initialTaskId) }
+    var goalId by rememberSaveable { mutableStateOf(tasks.firstOrNull { it.id == initialTaskId }?.goalId) }
+    var minutes by rememberSaveable { mutableStateOf("5") }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Plan a scrolling break") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Choose the task you'll return to. When the break ends, your companion will help you start.")
+            OutlinedTextField(minutes, { minutes = it.filter(Char::isDigit).take(3) }, label = { Text("Break minutes (1–180)") }, singleLine = true)
+            Text("Return to task", fontWeight = FontWeight.Bold)
+            if (tasks.none { !it.resolved }) Text("Create a pending task in Tasks first.")
+            tasks.filter { !it.resolved }.forEach { task -> FilterChip(taskId == task.id, {
+                taskId = task.id; goalId = task.goalId?.takeIf { id -> goals.any { it.id == id && !it.achieved } }
+            }, label = { Text(task.title) }) }
+            Text("Personal goal for your reminders")
+            FilterChip(goalId == null, { goalId = null }, label = { Text("Use just my task") })
+            goals.filter { !it.achieved }.forEach { goal -> FilterChip(goalId == goal.id, { goalId = goal.id }, label = { Text(goal.title) }) }
+            BreakPermissions()
+            pref?.let { if (ReminderPolicy.isQuiet(java.time.LocalTime.now().hour, it.quietStart, it.quietEnd))
+                Text("Quiet hours are active: the large window waits until quiet hours end. Your timer and in-app reminder still work.") }
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
+    }, confirmButton = { TextButton(enabled = !saving && taskId != null && minutes.toIntOrNull() in 1..180, onClick = {
+        saving = true
+        vm.action {
+            try {
+                vm.app.breaks.begin(taskId!!, goalId, minutes.toInt())
+                BreakTimerService.start(vm.app)
+                onDismiss()
+            } catch (e: CancellationException) { throw e
+            } catch (e: Exception) { error = e.message
+            } finally { saving = false }
+        }
+    }) { Text("Begin break") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+}
+
+@Composable
+fun ActiveBreakScreen(vm: KinViewModel, value: BreakSession, onStart: () -> Unit) {
+    var left by remember(value.id) { mutableLongStateOf(vm.app.breaks.remaining(value)) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val status by BreakTimerService.status.collectAsStateWithLifecycle()
+    LaunchedEffect(value, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) {
+                left = vm.app.breaks.remaining(value)
+                vm.app.breaks.refresh(value.id)
+                delay(500)
+            }
+        }
+    }
+    Column(Modifier.fillMaxSize().testTag("break_screen").verticalScroll(rememberScrollState()).padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        PageTitle("Your scrolling break", "A little rest, then one small step.")
+        Text(value.taskTitle, style = MaterialTheme.typography.titleLarge)
+        Text(if (value.phase == "DUE") "Time to return" else BreakNotifications.format(left), style = MaterialTheme.typography.displayMedium)
+        Text(when(value.phase) { "PAUSED" -> "Break paused"; "DUE" -> "Choose your focus time when you're ready."; else -> "Use another app. Your companion will remind you when time is up." })
+        if (value.snoozeCount > 0) Text(BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount))
+        Text(status.message, style = MaterialTheme.typography.bodySmall)
+        Button(onClick = onStart) { Text("Start task") }
+        when (value.phase) {
+            "RUNNING" -> OutlinedButton(onClick = { vm.action { vm.app.breaks.pause(value.id, value.revision) } }) { Text("Pause break") }
+            "PAUSED" -> OutlinedButton(onClick = { vm.action { vm.app.breaks.resume(value.id, value.revision) } }) { Text("Resume break") }
+            "DUE" -> OutlinedButton(onClick = { vm.action { if (vm.app.breaks.snooze(value.id, value.revision))
+                vm.app.breaks.dao.breakSession(value.id)?.let { BreakNotifications.snoozed(vm.app, it) } } }) { Text("Snooze 5 min") }
+        }
+        TextButton(onClick = { vm.action { vm.app.breaks.stop(value.id, value.revision) } }) { Text("Stop break") }
+        BreakPermissions()
+    }
+}
+
+@Composable
+fun BreakCycleHost(vm: KinViewModel, pref: UserPreferences, entry: BreakEntry?, requestId: Int, openFocus: () -> Unit) {
+    val active by vm.activeBreak.collectAsStateWithLifecycle()
+    val companion by vm.companion.collectAsStateWithLifecycle()
+    val internalRequest by vm.breakFocusRequest.collectAsStateWithLifecycle()
+    var handled by rememberSaveable { mutableIntStateOf(-1) }
+    var pickerId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pickerRevision by rememberSaveable { mutableIntStateOf(-1) }
+    var dismissedDue by rememberSaveable { mutableStateOf("") }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val promptOwner = remember { "break-dialog:${java.util.UUID.randomUUID()}" }
+    LaunchedEffect(internalRequest) {
+        internalRequest?.let {
+            pickerId = it.id; pickerRevision = it.revision; dismissedDue = "${it.id}:${it.revision}"
+            vm.clearBreakFocusRequest()
+        }
+    }
+    LaunchedEffect(entry, requestId) {
+        if (entry != null && handled != requestId) {
+            handled = requestId
+            vm.action {
+                val value = vm.app.breaks.refresh(entry.id)
+                require(value != null && value.revision == entry.revision && value.phase in listOf("RUNNING", "PAUSED", "DUE")) {
+                    "This break changed or ended. Use its current Start task button."
+                }
+                pickerId = value.id; pickerRevision = value.revision
+                dismissedDue = "${value.id}:${value.revision}"
+            }
+        }
+    }
+    val value = active
+    if (value != null && value.phase == "DUE" && pickerId == null && dismissedDue != "${value.id}:${value.revision}") {
+        DisposableEffect(value.id, lifecycle) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) BreakPromptVisibility.acquire(promptOwner)
+                if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_DESTROY) BreakPromptVisibility.release(promptOwner)
+            }
+            lifecycle.addObserver(observer)
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) BreakPromptVisibility.acquire(promptOwner)
+            onDispose { lifecycle.removeObserver(observer); BreakPromptVisibility.release(promptOwner) }
+        }
+        androidx.compose.ui.window.Dialog(onDismissRequest = { dismissedDue = "${value.id}:${value.revision}" }) {
+            BreakPromptPanel(value, pref, Evolution.at(companion?.xp ?: 0),
+                onStart = { dismissedDue = "${value.id}:${value.revision}"; pickerId = value.id; pickerRevision = value.revision },
+                onSnooze = { vm.action { if (vm.app.breaks.snooze(value.id, value.revision))
+                    vm.app.breaks.dao.breakSession(value.id)?.let { BreakNotifications.snoozed(vm.app, it) } } },
+                onStop = { vm.action { vm.app.breaks.stop(value.id, value.revision) } })
+        }
+    }
+    if (pickerId != null) {
+        if (value != null && value.id == pickerId && value.phase in listOf("RUNNING", "PAUSED", "DUE"))
+            FocusDurationDialog(vm, value, pickerRevision, { pickerId = null }, { pickerId = null; openFocus() })
+        else if (value != null) {
+            LaunchedEffect(value) { pickerId = null }
+        }
+    }
+}
+
+@Composable
+fun FocusDurationDialog(vm: KinViewModel, value: BreakSession, revision: Int, onDismiss: () -> Unit, onStarted: () -> Unit) {
+    var minutes by rememberSaveable(value.id) { mutableStateOf("25") }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("How long do you want to focus?") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(value.taskTitle)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                listOf(5, 15, 25, 45).forEach { amount -> FilterChip(minutes == amount.toString(), { minutes = amount.toString() }, label = { Text("$amount m") }) }
+            }
+            OutlinedTextField(minutes, { minutes = it.filter(Char::isDigit).take(3) }, label = { Text("Focus minutes (1–180)") }, singleLine = true)
+            Text("Your break ends when you start this focus session. Finishing early awards no XP.", style = MaterialTheme.typography.bodySmall)
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
+    }, confirmButton = { TextButton(enabled = !saving && minutes.toIntOrNull() in 1..180, onClick = {
+        saving = true
+        vm.action {
+            try { vm.app.breaks.startFocus(value.id, revision, minutes.toInt()); onStarted()
+            } catch (e: CancellationException) { throw e
+            } catch (e: Exception) { error = e.message
+            } finally { saving = false }
+        }
+    }) { Text("Begin focus") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+}
