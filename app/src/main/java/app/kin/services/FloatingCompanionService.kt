@@ -93,7 +93,7 @@ class FloatingCompanionService : Service(), LifecycleOwner, SavedStateRegistryOw
             registry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
             scope.launch {
                 try {
-                    combine(app.companionMode.flow, app.preferences.flow) { mode, preference -> mode to preference }
+                    combine(app.companionMode.flow, app.preferences.flow, PipVisibility.visible) { mode, preference, _ -> mode to preference }
                         .collect { (mode, preference) ->
                             val changed = mode.monitorUsage != options.monitorUsage ||
                                 mode.selectedApps != options.selectedApps || mode.thresholdMinutes != options.thresholdMinutes
@@ -142,9 +142,11 @@ class FloatingCompanionService : Service(), LifecycleOwner, SavedStateRegistryOw
         val quiet = ReminderPolicy.isQuiet(LocalTime.now().hour, prefs.quietStart, prefs.quietEnd)
         val locked = getSystemService(KeyguardManager::class.java).isKeyguardLocked ||
             !getSystemService(PowerManager::class.java).isInteractive
-        if (paused || quiet || locked) {
+        val pip = PipVisibility.visible.value
+        if (paused || quiet || locked || pip) {
             poller.reset(); nextUsagePoll = 0; expanded = false; hide()
-            status.value = FloatingStatus(true, false, when { paused -> "Paused for 15 minutes"; quiet -> "Quiet hours · companion resting"; else -> "Resting while your screen is locked or off" })
+            status.value = FloatingStatus(true, false, when { paused -> "Paused for 15 minutes"; quiet -> "Quiet hours · companion resting";
+                pip -> "Picture-in-Picture is visible · floating companion resting"; else -> "Resting while your screen is locked or off" })
             return
         }
         if (!attached) show()

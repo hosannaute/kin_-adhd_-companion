@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.4 Picture-in-Picture validation
+
+- The core build and **36 unit tests** pass locally. Six new real-PiP scenarios compile; the complete 32-scenario API 26/35 device runs are pending.
+- The new suite exercises native PiP entry/controls, a live countdown above another app, full-screen return, rotation/recreation, early finish without XP, dismissal preserving the session, settings recovery, overlay restoration/pause preservation and natural completion with one reward.
+- Final APK signature/checksum, lint and completed CI evidence will be recorded after acceptance. See [PICTURE_IN_PICTURE.md](PICTURE_IN_PICTURE.md) for user flows and remaining physical-device checks.
+
 ## 0.3 offline planner validation
 
 - Tested app/test revision: [`262c41d`](https://github.com/hosannaute/kin_-adhd_-companion/commit/262c41d7f268416d1263900269296a11ca2e689d). [CI run 41336235123](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41336235123) completed successfully: build, API 26 and API 35 jobs all passed. Subsequent documentation-only commits do not change the tested app or published APK.

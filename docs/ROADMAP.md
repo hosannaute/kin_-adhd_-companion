@@ -21,6 +21,7 @@ The supplied KIN master specification and six-screen image guide the project. In
 - Milestone 9: baseline verification is extended for 0.2 with usage-policy and real-overlay tests, plus an API 26/35 CI matrix. See VALIDATION.md for the exact current outcomes and remaining device limits.
 
 - Offline planner (0.3): daily/weekly/monthly repeats, persistent subtasks, native schedule pickers, Start/Snooze/Options notifications, task-specific breakdown/reschedule/skip and a schema 1 → 2 migration. See [behavior and limits](OFFLINE_PLANNER.md).
+- Focus Picture-in-Picture (0.4): native pinned companion/timer, pause/resume/finish actions, expand/dismiss behavior, settings recovery and overlay coordination. See [behavior and device-validation scope](PICTURE_IN_PICTURE.md).
 
 ## Still unimplemented
 
