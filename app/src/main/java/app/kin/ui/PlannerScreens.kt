@@ -52,8 +52,8 @@ fun HomeScreen(vm: KinViewModel, pref: UserPreferences, openTasks: () -> Unit, o
                         FilledTonalIconButton(onClick = openSettings) { Icon(Icons.Outlined.Settings, "Settings") }
                     }
                     Spacer(Modifier.height(20.dp))
-                    Surface(Modifier.align(Alignment.End).widthIn(max = 210.dp), shape = RoundedCornerShape(20.dp), color = Cream.copy(alpha=.95f)) {
-                        Text("We can start small.\nReady for today's adventure?", Modifier.padding(16.dp), color = Ink)
+                    Surface(Modifier.align(Alignment.End).widthIn(max = 170.dp), shape = RoundedCornerShape(20.dp), color = Cream.copy(alpha=.95f)) {
+                        Text("One small step.\nI'm here with you.", Modifier.padding(16.dp), color = Ink)
                     }
                 }
                 CompanionArt(stage, pref.reducedMotion, Modifier.align(Alignment.BottomStart).padding(start = 20.dp).size(150.dp), CreatureMood.WAVING)
