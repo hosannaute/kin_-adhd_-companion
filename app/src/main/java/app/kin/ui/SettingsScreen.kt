@@ -24,6 +24,8 @@ import app.kin.features.KinViewModel
 
 @Composable
 fun SettingsScreen(vm: KinViewModel, pref: UserPreferences, openFocus: () -> Unit) {
+    var setup by remember { mutableStateOf(false) }
+    if (setup) { PermissionSetupScreen(vm) { setup = false }; return }
     val context = LocalContext.current
     var enabled by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -40,6 +42,11 @@ fun SettingsScreen(vm: KinViewModel, pref: UserPreferences, openFocus: () -> Uni
     var end by remember(pref.quietEnd) { mutableStateOf(pref.quietEnd.toString()) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { PageTitle("Make room for you", "Gentle by default. Always in your control.") }
+        item { SoftCard {
+            Text("Companion window setup", style = MaterialTheme.typography.titleMedium)
+            Text("Check permissions, test a real window over other apps, and review background battery settings.")
+            Button(onClick = { setup = true }) { Text("Review permissions and test window") }
+        } }
         item { SoftCard {
             Text("Your companion", fontWeight = FontWeight.Bold)
             OutlinedTextField(name, { name = it.take(32) }, label = { Text("Companion name") }, singleLine = true)
@@ -75,7 +82,7 @@ fun SettingsScreen(vm: KinViewModel, pref: UserPreferences, openFocus: () -> Uni
         item { SoftCard {
             Text("Private, offline, yours", fontWeight = FontWeight.Bold)
             Text("No accounts, ads, analytics, or cloud chat. Your tasks, goals, and messages stay on this device. Android backup is disabled; uninstalling deletes your data.")
-            Text("KIN 0.5 · Early development build", style = MaterialTheme.typography.labelMedium)
+            Text("KIN 0.5.1 · Early development build", style = MaterialTheme.typography.labelMedium)
         } }
     }
 }

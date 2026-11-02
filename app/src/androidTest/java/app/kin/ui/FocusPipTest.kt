@@ -181,6 +181,7 @@ class FocusPipTest {
         if (android.os.Build.VERSION.SDK_INT >= 33) automation.grantRuntimePermission(app.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
         FloatingCompanionService.stop(app)
         await { !FloatingCompanionService.status.value.running }
+        app.preferences.markPermissionSetupReviewed()
         app.preferences.save(UserPreferences(onboarded = true, reducedMotion = true, quietStart = 0, quietEnd = 0))
         app.database.dao().currentFocus()?.let { app.repository.stopFocus(it.id) }
         app.database.dao().allTasks().forEach { app.repository.deleteTask(it.id) }

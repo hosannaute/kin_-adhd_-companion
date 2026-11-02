@@ -39,6 +39,28 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
         return
     }
     val session = timer.session?.takeUnless { it.ended }
+    val choosingFocus by vm.focusSetupRequested.collectAsStateWithLifecycle()
+    LaunchedEffect(session?.id) { if (session != null) vm.focusSetupRequested.value = false }
+    if (session == null && !choosingFocus) {
+        LazyColumn(Modifier.fillMaxSize().testTag("focus_screen"), contentPadding = PaddingValues(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            item { PageTitle("A little focus", "Rest first, or start one small task.") }
+            item { SoftCard {
+                if (latest?.completed == true) {
+                    Text("Focus complete · +15 XP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Progress saved. Ready for a little break?")
+                } else Text("Take a scrolling break", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Set a break length and a task to return to. A floating countdown becomes a large companion reminder at zero.")
+                Button(onClick = { showBreakSetup = true }, modifier = Modifier.fillMaxWidth()) { Text(if (latest?.completed == true) "Plan next break" else "Plan a scrolling break") }
+            } }
+            item { SoftCard {
+                Text("Focus now", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Choose a task and how long you want to work. Start the focus timer when you're ready.")
+                OutlinedButton(onClick = { vm.focusSetupRequested.value = true }, modifier = Modifier.fillMaxWidth()) { Text("Choose focus duration") }
+            } }
+        }
+        if (showBreakSetup) BreakSetupDialog(vm, latest?.taskId, { showBreakSetup = false })
+        return
+    }
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     val companion by vm.companion.collectAsStateWithLifecycle()
     val count by vm.sessionCount.collectAsStateWithLifecycle()
@@ -52,14 +74,25 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
             verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item { Text("A little focus", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
             item { Text(session?.taskTitle ?: "You don't have to do everything. Just be here.", color = Color(0xFFDEE7F2)) }
-            if (session == null && activeBreak == null) item { SoftCard {
-                if (latest?.completed == true) {
-                    Text("Focus complete · +15 XP", fontWeight = FontWeight.Bold)
-                    Text("Progress saved. Ready for a little break?")
-                } else Text("Taking a scrolling break? Set a return-to-task reminder.")
-                Button(onClick = { showBreakSetup = true }) { Text(if (latest?.completed == true) "Plan next break" else "Plan a scrolling break") }
-            } }
-            item { CompanionArt(Evolution.at(companion?.xp ?: 0), pref.reducedMotion, Modifier.size(170.dp), CreatureMood.SLEEPING) }
+            if (session == null) {
+                item { SoftCard {
+                    Text("Choose your focus duration", fontWeight = FontWeight.Bold)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        listOf(5,15,25,45).forEach { duration -> FilterChip(minutes == duration, { minutes = duration; custom = duration.toString() }, label = { Text("$duration m") }) }
+                    }
+                    OutlinedTextField(custom, { value -> custom = value.filter(Char::isDigit).take(3); custom.toIntOrNull()?.takeIf { it in 1..180 }?.let { minutes = it } },
+                        label = { Text("Custom minutes (1–180)") }, singleLine = true,
+                        isError = custom.toIntOrNull()?.let { it !in 1..180 } ?: true,
+                        supportingText = { Text("Selected duration: $minutes minutes") })
+                    Text("Focus on")
+                    FilterChip(taskId == null, { taskId = null }, label = { Text("Just a little time for me") })
+                    tasks.filter { !it.resolved }.forEach { task ->
+                        FilterChip(taskId == task.id, { taskId = task.id }, label = { Text(task.title) })
+                    }
+                } }
+            }
+            if (session == null) item { TextButton(onClick = { vm.focusSetupRequested.value = false }) { Text("Back to break or focus") } }
+            item { CompanionArt(Evolution.at(companion?.xp ?: 0), pref.reducedMotion, Modifier.size(140.dp), CreatureMood.SLEEPING) }
             item {
                 val millis = if (session != null) timer.remainingMillis else minutes * 60_000L
                 val seconds = (millis + 999) / 1000
@@ -83,15 +116,15 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
                     FilledTonalButton(onClick = { vm.action { vm.repository.stopFocus(current.id) } }) { Text("Finish early") }
                 }
             }
-            item { SoftCard {
+            if (session != null) item { SoftCard {
                 Text("Picture-in-Picture", fontWeight = FontWeight.Bold)
                 when (timer.availability) {
                     PipAvailability.AVAILABLE -> {
                         Text("Keep your companion and timer beside other apps. Tap the small window for controls or to return to KIN.")
-                        OutlinedButton(onClick = enterPip, enabled = session != null) {
+                        OutlinedButton(onClick = enterPip) {
                             Icon(Icons.Outlined.PictureInPictureAlt, null); Text(" Open Picture-in-Picture")
                         }
-                        Text(if (session == null) "Start a focus session to open the window." else "Closing the window keeps your session running. Finish early ends it without XP.",
+                        Text("Closing the window keeps your session running. Finish early ends it without XP.",
                             style = MaterialTheme.typography.bodySmall)
                     }
                     PipAvailability.DISABLED -> {
@@ -101,23 +134,6 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
                     PipAvailability.UNSUPPORTED -> Text("This device doesn't support Picture-in-Picture. Your timer still works here.")
                 }
             } }
-            if (session == null) {
-                item { SoftCard {
-                    Text("Choose your pace", fontWeight = FontWeight.Bold)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        listOf(5,15,25,45).forEach { duration -> FilterChip(minutes == duration, { minutes = duration; custom = duration.toString() }, label = { Text("$duration m") }) }
-                    }
-                    OutlinedTextField(custom, { value -> custom = value.filter(Char::isDigit).take(3); custom.toIntOrNull()?.takeIf { it in 1..180 }?.let { minutes = it } },
-                        label = { Text("Custom minutes (1–180)") }, singleLine = true,
-                        isError = custom.toIntOrNull()?.let { it !in 1..180 } ?: true,
-                        supportingText = { Text("Selected duration: $minutes minutes") })
-                    Text("Focus on")
-                    FilterChip(taskId == null, { taskId = null }, label = { Text("Just a little time for me") })
-                    tasks.filter { !it.resolved }.forEach { task ->
-                        FilterChip(taskId == task.id, { taskId = task.id }, label = { Text(task.title) })
-                    }
-                } }
-            }
             item { Text("$count completed sessions · No pressure to keep a streak", color = Color(0xFFDFE4EE), style = MaterialTheme.typography.bodySmall) }
             item { Text("Finishing early saves the interruption without XP. Completion notifications may be delayed by Android battery controls.",
                 color = Color(0xFFDFE4EE), style = MaterialTheme.typography.bodySmall) }

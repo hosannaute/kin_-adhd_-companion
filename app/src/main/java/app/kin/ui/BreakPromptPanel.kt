@@ -28,3 +28,23 @@ fun BreakPromptPanel(value: BreakSession, pref: UserPreferences, stage: Evolutio
         }
     }
 }
+
+@Composable
+fun BreakCountdownPanel(value: BreakSession, left: Long, pref: UserPreferences, stage: Evolution,
+                        onOpen: () -> Unit, onPause: () -> Unit) {
+    Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
+        Column(Modifier.fillMaxWidth().padding(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CompanionArt(stage, pref.reducedMotion, Modifier.size(48.dp), CreatureMood.WAVING)
+                Column {
+                    Text(if (value.phase == "PAUSED") "Break paused" else "Scrolling break", style = MaterialTheme.typography.labelMedium)
+                    Text(app.kin.services.BreakNotifications.format(left), style = MaterialTheme.typography.headlineSmall)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onPause) { Text(if (value.phase == "PAUSED") "Resume" else "Pause") }
+                TextButton(onClick = onOpen) { Text("Open KIN") }
+            }
+        }
+    }
+}

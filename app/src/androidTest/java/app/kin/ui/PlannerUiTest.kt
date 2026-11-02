@@ -25,6 +25,7 @@ class PlannerUiTest {
         val info = automation.serviceInfo
         info.flags = info.flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         automation.serviceInfo = info
+        app.preferences.markPermissionSetupReviewed()
         app.preferences.save(UserPreferences(onboarded = true, reducedMotion = true))
         app.database.dao().allTasks().forEach { app.repository.deleteTask(it.id) }
         app.database.dao().currentFocus()?.let { app.repository.stopFocus(it.id) }

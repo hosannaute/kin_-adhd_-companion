@@ -107,6 +107,7 @@ class BreakCycleTest {
         app.database.dao().currentBreak()?.let { app.breaks.stop(it.id, it.revision) }
         app.stopService(Intent(app, BreakTimerService::class.java)); FloatingCompanionService.stop(app)
         await { !BreakTimerService.status.value.running && !FloatingCompanionService.status.value.running }
+        app.preferences.markPermissionSetupReviewed()
         app.preferences.save(UserPreferences(onboarded = true, reducedMotion = true, quietStart = 0, quietEnd = 0))
         app.database.dao().allTasks().forEach { app.repository.deleteTask(it.id) }
         app.database.dao().goals().first().forEach { app.repository.deleteGoal(it.id) }
@@ -116,6 +117,8 @@ class BreakCycleTest {
         task = app.database.dao().allTasks().single()
     }
     @After fun cleanup() = runBlocking<Unit> {
+        app.stopService(Intent(app, OverlayPreviewService::class.java))
+        app.preferences.markPermissionSetupReviewed()
         appOp("POST_NOTIFICATION", "allow")
         if (android.os.Build.VERSION.SDK_INT < 33 && !Notifications.allowed(app)) {
             instrumentation.runOnMainSync { app.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -143,6 +146,61 @@ class BreakCycleTest {
         appOp("POST_NOTIFICATION", "allow")
         if (android.os.Build.VERSION.SDK_INT >= 33) automation.grantRuntimePermission(app.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
         val info = automation.serviceInfo; info.flags = previousFlags; automation.serviceInfo = info
+    }
+
+    @Test(timeout = 120_000) fun firstOpenShowsPermissionsAndSkippingPersistsAcrossRecreation() = runBlocking<Unit> {
+        app.preferences.markPermissionSetupReviewed(false)
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        expect("Set up your companion")
+        compose.onNodeWithText("Allow companion window").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Continue without floating window").performScrollTo().performClick()
+        expect("Hello, dreamer")
+        assertTrue(app.preferences.permissionSetupReviewed.first())
+        scenario!!.recreate()
+        expect("Hello, dreamer")
+        compose.onNodeWithContentDescription("Settings").performClick()
+        expect("Review permissions and test window")
+        compose.onNodeWithText("Review permissions and test window").performClick()
+        expect("Set up your companion")
+    }
+
+    @Test(timeout = 120_000) fun freshInstallShowsPermissionSetupBeforeProfileOnboarding() = runBlocking<Unit> {
+        app.preferences.save(UserPreferences(onboarded = false, reducedMotion = true))
+        app.preferences.markPermissionSetupReviewed(false)
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        expect("Set up your companion")
+        compose.onNodeWithText("Continue without floating window").performScrollTo().performClick()
+        expect("Welcome to your little clearing")
+        assertFalse(app.preferences.flow.first().onboarded)
+    }
+
+    @Test(timeout = 120_000) fun permissionPreviewShowsARealWindowAndReturnsWithoutCreatingATimer() = runBlocking<Unit> {
+        appOp("SYSTEM_ALERT_WINDOW", "allow")
+        app.preferences.markPermissionSetupReviewed(false)
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        expect("Set up your companion")
+        compose.onNodeWithText("Test window over other apps").performScrollTo().performClick()
+        await { OverlayPreviewService.visible.value && nativeText("Your companion window works") }
+        assertNull(app.database.dao().currentBreak())
+        assertNull(app.database.dao().currentFocus())
+        clickWindow("Back to KIN")
+        expect("Set up your companion")
+        await { !OverlayPreviewService.visible.value }
+    }
+
+    @Test(timeout = 120_000) fun homeStartsTheBreakFlowAndFocusHasADirectTab() = runBlocking<Unit> {
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        expect("Hello, dreamer")
+        compose.onNodeWithText("Take a scrolling break").performScrollTo().performClick()
+        expect("Plan a scrolling break")
+        compose.onNode(hasText(task.title) and hasAnyAncestor(isDialog())).performScrollTo().performClick()
+        compose.onNodeWithText("Begin break").performClick()
+        expect("Your scrolling break")
+        assertEquals(task.id, app.database.dao().currentBreak()!!.taskId)
+        compose.onNodeWithText("Home", useUnmergedTree = true).performClick()
+        expect("Open active timer")
+        compose.onNodeWithText("Focus", useUnmergedTree = true).performClick()
+        expect("Your scrolling break")
     }
 
     @Test(timeout = 120_000) fun setupPauseRecreateAndChosenFocusDurationWorkAsOneCycle() = runBlocking<Unit> {
@@ -181,7 +239,9 @@ class BreakCycleTest {
         scenario!!.onActivity { assertTrue(FloatingCompanionService.start(it)) }
         await { FloatingCompanionService.status.value.visible }
         assertTrue(FloatingCompanionService.status.value.message.contains("planned break"))
-        anotherApp(); nearExpiry(value.id)
+        anotherApp()
+        await { BreakTimerService.status.value.visible && nativeText("Scrolling break") }
+        nearExpiry(value.id)
         await { BreakTimerService.status.value.visible && nativeText("Your break is over") }
         await { !FloatingCompanionService.status.value.visible }
         assertNull(app.database.dao().currentFocus())
@@ -190,8 +250,8 @@ class BreakCycleTest {
         await { nativeText("Five more minutes") && nativeText(goal.title) }
         val snoozed = app.database.dao().currentBreak()!!
         assertEquals("RUNNING", snoozed.phase); assertTrue(app.breaks.remaining(snoozed) > 240_000)
-        await { !BreakTimerService.status.value.visible }
-        await { FloatingCompanionService.status.value.visible }
+        await { nativeText("Scrolling break") && !nativeText("Five more minutes") }
+        assertFalse(FloatingCompanionService.status.value.visible)
         nearExpiry(value.id)
         await { BreakTimerService.status.value.visible && nativeText(goal.title) }
         clickWindow("Start task")
@@ -254,7 +314,7 @@ class BreakCycleTest {
         assertEquals(xp + 15, app.database.dao().companion().first()!!.xp)
     }
 
-    @Test(timeout = 120_000) fun pausedBreakRecoversServiceAndQuietHoursDelayTheWindow() = runBlocking<Unit> {
+    @Test(timeout = 120_000) fun pausedBreakRecoversServiceAndExplicitBreakStillRemindsDuringQuietHours() = runBlocking<Unit> {
         appOp("SYSTEM_ALERT_WINDOW", "allow")
         val value = begin()
         compose.onNodeWithText("Pause break").performScrollTo().performClick()
@@ -272,9 +332,7 @@ class BreakCycleTest {
         await { runBlocking { app.database.dao().currentBreak()?.phase == "RUNNING" } }
         anotherApp(); nearExpiry(value.id)
         await { runBlocking { app.database.dao().currentBreak()?.phase == "DUE" } }
-        assertFalse(BreakTimerService.status.value.visible)
-        app.preferences.save(UserPreferences(onboarded = true, reducedMotion = true, quietStart = 0, quietEnd = 0))
-        await { BreakTimerService.status.value.visible }
+        await { BreakTimerService.status.value.visible && nativeText("Your break is over") }
         clickWindow("Stop break")
         await { !BreakTimerService.status.value.running }
     }

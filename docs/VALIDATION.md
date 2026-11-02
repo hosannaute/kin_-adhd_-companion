@@ -1,5 +1,13 @@
 # Validation record
 
+## 0.5.1 permission and overlay repair
+
+- Tested app/test revision: [`01351d1`](https://github.com/hosannaute/kin_-adhd_-companion/commit/01351d15f5170bfe59cb3eaa90c7d25aadc85aa2). [CI run 41415482372](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41415482372) completed successfully: build, API 26 and API 35 jobs all passed. **42 unit tests and 51 device scenarios per API passed, with 0 failures and 0 skips.** Completed JUnit counts appear in check annotations. The publication follow-up changes only this record and APK/checksum files; tested app/test/build source is unchanged.
+- Four additional scenarios verify permission setup before fresh onboarding and for existing users, skipping/recreating/reopening setup, a real sample window over the home screen without creating a timer, and the direct Home break/Focus-tab flow. The existing cross-app scenario now verifies the compact countdown → large prompt → snooze acknowledgment → compact countdown → repeat prompt transitions. The paused/recovered-service scenario verifies that an explicit break still reminds during quiet hours. Notification denial, persistence, rewards, native PiP, migration and real one-minute usage regressions remain enabled.
+- Local app/test APK assembly and final `lintDebug` pass, with **0 lint findings**. A narrow-emulator screen inspection informed the clearer Home entry points and the shorter/narrower speech bubble. Physical-phone visual/accessibility and OEM background/popup behavior still require acceptance; emulator results do not establish behavior on every phone.
+- The published APK is **0.5.1/code 6**, **19,587,808 bytes**, min API 26/target 35. Its checksum matches the local build and its signature verifies against the existing published certificate. Room remains at schema 3; permission-review flags are separate DataStore keys, preserving profile/preferences and existing data. The manifest has no Internet permission and production DEX excludes instrumentation fixtures and permission-revocation test helpers.
+- See [BREAK_FOCUS_CYCLE.md](BREAK_FOCUS_CYCLE.md) for the updated first-open setup, real window test, quiet-hour behavior, battery guidance and platform limits. Android permission approval remains the user's choice.
+
 ## 0.5 break/focus cycle validation
 
 - Tested app/test revision: [`e1f92d1`](https://github.com/hosannaute/kin_-adhd_-companion/commit/e1f92d1eb9eaa56b81d620f825394b04409c52e8). [CI run 41357705819](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41357705819) completed successfully: build, API 26 and API 35 jobs all passed. The publication follow-up changes only documentation and the APK; tested app/test/build source is unchanged.

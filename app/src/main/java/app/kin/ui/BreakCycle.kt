@@ -32,7 +32,6 @@ fun BreakPermissions() {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var overlay by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var notifications by remember { mutableStateOf(Notifications.allowed(context)) }
-    val grant = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifications = Notifications.allowed(context) }
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) {
             overlay = Settings.canDrawOverlays(context); notifications = Notifications.allowed(context)
@@ -46,16 +45,14 @@ fun BreakPermissions() {
     Text(if (notifications) "Notifications are available as a fallback." else "Notifications are off. Without either permission, return to KIN to see the reminder.",
         style = MaterialTheme.typography.bodySmall)
     if (!notifications) OutlinedButton(onClick = {
-        if (android.os.Build.VERSION.SDK_INT >= 33) grant.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-        else context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+        context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
     }) { Text("Allow break notifications") }
 }
 
 @Composable
-fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: () -> Unit) {
+fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: () -> Unit, onStarted: () -> Unit = onDismiss) {
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     val goals by vm.goals.collectAsStateWithLifecycle()
-    val pref by vm.preferences.collectAsStateWithLifecycle()
     var taskId by rememberSaveable { mutableStateOf(initialTaskId) }
     var goalId by rememberSaveable { mutableStateOf(tasks.firstOrNull { it.id == initialTaskId }?.goalId) }
     var minutes by rememberSaveable { mutableStateOf("5") }
@@ -74,8 +71,7 @@ fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: (
             FilterChip(goalId == null, { goalId = null }, label = { Text("Use just my task") })
             goals.filter { !it.achieved }.forEach { goal -> FilterChip(goalId == goal.id, { goalId = goal.id }, label = { Text(goal.title) }) }
             BreakPermissions()
-            pref?.let { if (ReminderPolicy.isQuiet(java.time.LocalTime.now().hour, it.quietStart, it.quietEnd))
-                Text("Quiet hours are active: the large window waits until quiet hours end. Your timer and in-app reminder still work.") }
+            Text("A small countdown stays over other apps. At zero, a large reminder appears, including during quiet hours. Notification sounds stay quiet.")
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { TextButton(enabled = !saving && taskId != null && minutes.toIntOrNull() in 1..180, onClick = {
@@ -84,7 +80,7 @@ fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: (
             try {
                 vm.app.breaks.begin(taskId!!, goalId, minutes.toInt())
                 BreakTimerService.start(vm.app)
-                onDismiss()
+                onStarted()
             } catch (e: CancellationException) { throw e
             } catch (e: Exception) { error = e.message
             } finally { saving = false }
@@ -108,12 +104,13 @@ fun ActiveBreakScreen(vm: KinViewModel, value: BreakSession, onStart: () -> Unit
     }
     Column(Modifier.fillMaxSize().testTag("break_screen").verticalScroll(rememberScrollState()).padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        PageTitle("Your scrolling break", "A little rest, then one small step.")
+        PageTitle("Your scrolling break", "1 · Break → 2 · Return to task → 3 · Focus")
         Text(value.taskTitle, style = MaterialTheme.typography.titleLarge)
         Text(if (value.phase == "DUE") "Time to return" else BreakNotifications.format(left), style = MaterialTheme.typography.displayMedium)
         Text(when(value.phase) { "PAUSED" -> "Break paused"; "DUE" -> "Choose your focus time when you're ready."; else -> "Use another app. Your companion will remind you when time is up." })
         if (value.snoozeCount > 0) Text(BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount))
-        Text(status.message, style = MaterialTheme.typography.bodySmall)
+        Text(if (!status.running) "Background timer isn't running. Reopen KIN or tap Restart timer below." else status.message, style = MaterialTheme.typography.bodySmall)
+        if (!status.running) OutlinedButton(onClick = { BreakTimerService.start(vm.app) }) { Text("Restart timer") }
         Button(onClick = onStart) { Text("Start task") }
         when (value.phase) {
             "RUNNING" -> OutlinedButton(onClick = { vm.action { vm.app.breaks.pause(value.id, value.revision) } }) { Text("Pause break") }

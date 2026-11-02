@@ -30,6 +30,7 @@ class FloatingCompanionTest {
     @get:Rule val compose = createEmptyComposeRule()
     private val app = ApplicationProvider.getApplicationContext<KinApplication>()
     @Before fun allowControlNotificationOnTestDevices() {
+        runBlocking { app.preferences.markPermissionSetupReviewed() }
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
                 app.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
