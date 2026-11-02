@@ -23,7 +23,6 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.time.LocalTime
 
 data class BreakTimerStatus(val running: Boolean = false, val visible: Boolean = false, val message: String = "Break timer is off")
 
@@ -44,6 +43,9 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private var pref by mutableStateOf<UserPreferences?>(null)
     private var stage by mutableStateOf(Evolution.EGG)
     private var acknowledgment by mutableStateOf(false)
+    private var large by mutableStateOf(false)
+    private var remaining by mutableLongStateOf(0)
+    private var attachedLarge = false
     private var ackUntil = 0L
     private var previous: BreakSession? = null
     private var notificationKey = ""
@@ -79,6 +81,7 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             if (old?.id == value.id && value.snoozeCount > old.snoozeCount && value.phase == "RUNNING") ackUntil = SystemClock.elapsedRealtime() + 4_000
             previous = value; current = value
             val left = app.breaks.remaining(value)
+            remaining = left
             val key = "${value.id}:${value.revision}:${value.phase}:${if (value.phase == "RUNNING") (left + 999) / 1000 else 0}"
             if (key != notificationKey) {
                 try { getSystemService(NotificationManager::class.java).notify(BreakNotifications.FOREGROUND_ID, BreakNotifications.foreground(this, value, left)) }
@@ -86,18 +89,20 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 notificationKey = key
             }
             acknowledgment = value.phase == "RUNNING" && SystemClock.elapsedRealtime() < ackUntil
-            val preference = pref
-            val quiet = preference == null || ReminderPolicy.isQuiet(LocalTime.now().hour, preference.quietStart, preference.quietEnd)
+            large = value.phase == "DUE" || acknowledgment
             val locked = getSystemService(KeyguardManager::class.java).isKeyguardLocked || !getSystemService(PowerManager::class.java).isInteractive
-            val eligible = (value.phase == "DUE" || acknowledgment) && Settings.canDrawOverlays(this) &&
-                !quiet && !locked && !PipVisibility.visible.value && !KinVisibility.resumed.value
+            // A deliberately started break must return on time, including during quiet hours.
+            // Passive task/app-usage reminders retain their quiet-hour rules.
+            val eligible = pref != null && Settings.canDrawOverlays(this) &&
+                !locked && !OverlayPreviewService.visible.value && !PipVisibility.visible.value && !KinVisibility.resumed.value
             if (eligible) show() else hide()
             status.value = BreakTimerStatus(true, attached, when {
                 attached && acknowledgment -> "Snoozed · remember your goal"
-                attached -> "Time to return to your task"
+                attached && large -> "Time to return to your task"
+                attached -> "Floating break countdown is visible"
+                !Settings.canDrawOverlays(this) -> "Window permission is off · enable it below to show reminders over other apps"
                 value.phase == "PAUSED" -> "Break paused"
                 value.phase == "RUNNING" -> "Break countdown is running"
-                quiet -> "Break ended · quiet hours"
                 locked -> "Break ended · waiting for screen unlock"
                 else -> "Break ended · open KIN or its reminder to choose focus time"
             })
@@ -111,10 +116,9 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     @Suppress("DEPRECATION")
     private fun screen(): DisplayMetrics = DisplayMetrics().also { windows.defaultDisplay.getRealMetrics(it) }
     private fun show() {
-        if (attached) return
         val preference = pref ?: return
         val metrics = screen()
-        val width = minOf(metrics.widthPixels - (32 * metrics.density).toInt(), (340 * metrics.density).toInt()).coerceAtLeast(1)
+        val width = minOf(metrics.widthPixels - (32 * metrics.density).toInt(), ((if (large) 340 else 210) * metrics.density).toInt()).coerceAtLeast(1)
         val maxHeight = ((metrics.heightPixels / metrics.density) - 72).coerceAtLeast(180f)
         if (root == null) root = FrameLayout(this).apply {
             setViewTreeLifecycleOwner(this@BreakTimerService)
@@ -125,12 +129,19 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                     val value = current
                     val settings = pref ?: preference
                     KinTheme(settings.darkMode) {
-                        if (value != null) BreakPromptPanel(value, settings, stage, acknowledgment, maxHeight,
+                        if (value != null && large) BreakPromptPanel(value, settings, stage, acknowledgment, maxHeight,
                             onStart = { openFocusPicker(value) },
                             onSnooze = { scope.launch { if (app.breaks.snooze(value.id, value.revision)) {
                                 app.database.dao().breakSession(value.id)?.let { BreakNotifications.snoozed(app, it) }; tick()
                             } } },
                             onStop = { scope.launch { app.breaks.stop(value.id, value.revision); tick() } })
+                        else if (value != null) BreakCountdownPanel(value, remaining, settings, stage,
+                            onOpen = { openFocusPicker(value, false) },
+                            onPause = { scope.launch {
+                                if (value.phase == "PAUSED") app.breaks.resume(value.id, value.revision)
+                                else app.breaks.pause(value.id, value.revision)
+                                tick()
+                            } })
                     }
                 }
             })
@@ -138,14 +149,24 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         val params = WindowManager.LayoutParams(width, WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT).apply { gravity = Gravity.CENTER }
-        try { windows.addView(root, params); attached = true; BreakPromptVisibility.acquire("break-service") }
+            PixelFormat.TRANSLUCENT).apply {
+                gravity = if (large) Gravity.CENTER else Gravity.TOP or Gravity.END
+                if (!large) { x = (16 * metrics.density).toInt(); y = (90 * metrics.density).toInt() }
+            }
+        if (attached) {
+            if (attachedLarge != large) {
+                try { windows.updateViewLayout(root, params); attachedLarge = large }
+                catch (_: RuntimeException) { hide() }
+            }
+            return
+        }
+        try { windows.addView(root, params); attached = true; attachedLarge = large; BreakPromptVisibility.acquire("break-service") }
         catch (_: RuntimeException) { hide() /* The notification remains a usable fallback. */ }
     }
-    private fun openFocusPicker(value: BreakSession) {
+    private fun openFocusPicker(value: BreakSession, chooseFocus: Boolean = true) {
         try {
             // This follows a direct tap on KIN's visible, permission-granted overlay.
-            startActivity(BreakNotifications.intent(this, value, true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            startActivity(BreakNotifications.intent(this, value, chooseFocus).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             hide()
         } catch (_: RuntimeException) {
             current = value

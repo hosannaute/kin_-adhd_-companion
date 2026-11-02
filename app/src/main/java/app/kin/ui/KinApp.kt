@@ -26,11 +26,14 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
            compact: State<Boolean>, timer: State<PipFocusState>, enterPip: () -> Unit, pipSettings: () -> Unit,
            breakEntry: BreakEntry? = null) {
     val preferences by vm.preferences.collectAsStateWithLifecycle()
+    val permissionsReviewed by vm.permissionSetupReviewed.collectAsStateWithLifecycle()
     val pref = preferences
     KinTheme(pref?.darkMode ?: false) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            if (pref == null) Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            if (pref == null || permissionsReviewed == null) Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                 CircularProgressIndicator()
+            } else if (permissionsReviewed != true) {
+                PermissionSetupScreen(vm) { vm.action { vm.app.preferences.markPermissionSetupReviewed() } }
             } else if (!pref.onboarded) {
                 Onboarding(vm, pref)
             } else {
@@ -41,9 +44,8 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                 LaunchedEffect(error) { error?.let { snackbar.showSnackbar(it); vm.clearError() } }
                 val destinations = listOf(Destination("home", "Home", Icons.Outlined.Home),
                     Destination("tasks", "Tasks", Icons.Outlined.CheckCircle),
-                    Destination("world", "World", Icons.Outlined.Landscape),
-                    Destination("chat", "Chat", Icons.Outlined.ChatBubbleOutline),
-                    Destination("more", "More", Icons.Outlined.MoreHoriz))
+                    Destination("focus", "Focus", Icons.Outlined.Timer),
+                    Destination("world", "Companion", Icons.Outlined.AutoAwesome))
                 val entry by nav.currentBackStackEntryAsState()
                 fun go(route: String) { nav.navigate(route) { launchSingleTop = true; popUpTo("home") { saveState = true }; restoreState = true } }
                 Box(Modifier.fillMaxSize()) {
@@ -63,7 +65,7 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                             composable("home") { HomeScreen(vm, pref, { go("tasks") }, { go("focus") }, { go("more") }) }
                             composable("tasks") { TasksScreen(vm, { go("focus") },
                                 taskEntry?.takeIf { it.action == TaskEntryAction.OPTIONS }?.taskId, requestId) }
-                            composable("world") { WorldScreen(vm, pref) }
+                            composable("world") { Column { TextButton(onClick = { go("chat") }) { Text("Talk to your companion") }; Box(Modifier.weight(1f)) { WorldScreen(vm, pref) } } }
                             composable("chat") { ChatScreen(vm, pref) }
                             composable("more") { SettingsScreen(vm, pref, { go("focus") }) }
                             composable("focus") { if (!compact.value) FocusScreen(vm, pref, timer.value, enterPip, pipSettings) }

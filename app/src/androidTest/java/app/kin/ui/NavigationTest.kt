@@ -20,16 +20,17 @@ class NavigationTest {
     @get:Rule val compose = createEmptyComposeRule()
     @Test fun allMajorScreensAreReachable() {
         val app = ApplicationProvider.getApplicationContext<KinApplication>()
-        runBlocking { app.preferences.save(UserPreferences(onboarded = true, reducedMotion = true)) }
+        runBlocking { app.preferences.markPermissionSetupReviewed(); app.preferences.save(UserPreferences(onboarded = true, reducedMotion = true)) }
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Hello, dreamer").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Tasks", useUnmergedTree = true).performClick()
             compose.onNodeWithText("Your adventures").assertIsDisplayed()
-            compose.onNodeWithText("World", useUnmergedTree = true).performClick()
+            compose.onNodeWithText("Companion", useUnmergedTree = true).performClick()
             compose.onNodeWithText("Your little world").assertIsDisplayed()
-            compose.onNodeWithText("Chat", useUnmergedTree = true).performClick()
+            compose.onNodeWithText("Talk to your companion", useUnmergedTree = true).performClick()
             compose.onNodeWithText("Offline companion · guided responses").assertIsDisplayed()
-            compose.onNodeWithText("More", useUnmergedTree = true).performClick()
+            compose.onNodeWithText("Home", useUnmergedTree = true).performClick()
+            compose.onNodeWithContentDescription("Settings").performClick()
             compose.onNodeWithText("Make room for you").assertIsDisplayed()
             compose.onNodeWithText("Home", useUnmergedTree = true).performClick()
             compose.onNodeWithText("A little focus time", substring = true).performScrollTo().performClick()
@@ -38,7 +39,7 @@ class NavigationTest {
     }
     @Test fun repeatedIntentsNavigateAnAlreadyRunningActivity() {
         val app = ApplicationProvider.getApplicationContext<KinApplication>()
-        runBlocking { app.preferences.save(UserPreferences(onboarded = true, reducedMotion = true)) }
+        runBlocking { app.preferences.markPermissionSetupReviewed(); app.preferences.save(UserPreferences(onboarded = true, reducedMotion = true)) }
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             compose.waitUntil(15_000) { compose.onAllNodesWithText("Hello, dreamer").fetchSemanticsNodes().isNotEmpty() }
             fun request(route: String) { scenario.onActivity { activity ->

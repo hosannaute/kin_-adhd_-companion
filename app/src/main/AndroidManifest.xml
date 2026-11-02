@@ -16,6 +16,10 @@
     <application android:name=".KinApplication" android:allowBackup="false" android:fullBackupContent="@xml/backup_rules" android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="KIN" android:icon="@drawable/ic_kin" android:supportsRtl="true"
         android:theme="@style/Theme.Kin">
+        <service android:name=".services.OverlayPreviewService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Explicit user-requested fifteen-second companion window permission test with a foreground notification and automatic stop" />
+        </service>
         <service android:name=".services.BreakTimerService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-started break countdown with persistent pause/stop controls and an optional permission-granted companion window prompting a return to a chosen task" />

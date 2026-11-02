@@ -21,6 +21,12 @@ class Preferences(context: Context) {
     private val reminders = booleanPreferencesKey("reminders")
     private val quietStart = intPreferencesKey("quiet_start")
     private val quietEnd = intPreferencesKey("quiet_end")
+    private val permissionSetup = booleanPreferencesKey("permission_setup_v1")
+    private val notificationAsked = booleanPreferencesKey("notification_asked")
+    val permissionSetupReviewed = store.data.map { it[permissionSetup] ?: false }
+    val notificationPromptAttempted = store.data.map { it[notificationAsked] ?: false }
+    suspend fun markPermissionSetupReviewed(reviewed: Boolean = true) { store.edit { it[permissionSetup] = reviewed } }
+    suspend fun markNotificationPromptAttempted() { store.edit { it[notificationAsked] = true } }
     val flow = store.data.map {
         UserPreferences(it[onboarded] ?: false, it[name] ?: "Lumi", it[reduced] ?: false,
             it[dark] ?: false, it[reminders] ?: true, it[quietStart] ?: 22, it[quietEnd] ?: 8)

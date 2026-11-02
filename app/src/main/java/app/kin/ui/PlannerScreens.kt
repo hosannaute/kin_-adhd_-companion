@@ -25,16 +25,22 @@ private fun Task.today(): Boolean = Instant.ofEpochMilli(scheduledAt).atZone(Zon
 
 @Composable
 fun HomeScreen(vm: KinViewModel, pref: UserPreferences, openTasks: () -> Unit, openFocus: () -> Unit, openSettings: () -> Unit) {
+    var permissionSetup by remember { mutableStateOf(false) }
+    if (permissionSetup) { PermissionSetupScreen(vm) { permissionSetup = false }; return }
+    val windowAllowed by rememberWindowPermission()
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     val companion by vm.companion.collectAsStateWithLifecycle()
     val goals by vm.goals.collectAsStateWithLifecycle()
     val stage = Evolution.at(companion?.xp ?: 0)
     var help by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Task?>(null) }
+    var breakSetup by remember { mutableStateOf(false) }
+    val cycle by vm.activeBreak.collectAsStateWithLifecycle()
+    val focus by vm.focus.collectAsStateWithLifecycle()
     val today = tasks.filter { !it.resolved && it.today() }.take(3)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            Box(Modifier.fillMaxWidth().height(390.dp).clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))) {
+            Box(Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))) {
                 WorldLandscape(modifier = Modifier.fillMaxSize(), unlocked = stage.ordinal)
                 Column(Modifier.fillMaxWidth().padding(22.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -50,10 +56,25 @@ fun HomeScreen(vm: KinViewModel, pref: UserPreferences, openTasks: () -> Unit, o
                         Text("We can start small.\nReady for today's adventure?", Modifier.padding(16.dp), color = Ink)
                     }
                 }
-                CompanionArt(stage, pref.reducedMotion, Modifier.align(Alignment.BottomStart).padding(start = 20.dp).size(220.dp), CreatureMood.WAVING)
+                CompanionArt(stage, pref.reducedMotion, Modifier.align(Alignment.BottomStart).padding(start = 20.dp).size(150.dp), CreatureMood.WAVING)
             }
         }
         item { Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            SoftCard {
+                Text("Your next small step", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                if (cycle != null || focus != null) {
+                    Text(if (cycle?.phase in listOf("RUNNING", "PAUSED", "DUE")) "Your break timer is active. Open it to see the countdown or return to your task." else "Your focus session is active.")
+                    Button(onClick = openFocus, modifier = Modifier.fillMaxWidth()) { Text("Open active timer") }
+                } else {
+                    Text("Rest first, or start one task. You choose.")
+                    Button(onClick = { breakSetup = true }, modifier = Modifier.fillMaxWidth()) { Text("Take a scrolling break") }
+                    Text("Choose when to return. Your companion appears over other apps at the end.", style = MaterialTheme.typography.bodySmall)
+                    OutlinedButton(onClick = { vm.focusSetupRequested.value = true; openFocus() }, modifier = Modifier.fillMaxWidth()) { Text("Focus now") }
+                }
+                Text(if (windowAllowed) "Companion window allowed" else "Floating reminders are off until you allow the companion window.",
+                    style = MaterialTheme.typography.bodySmall, color = if (windowAllowed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                TextButton(onClick = { permissionSetup = true }) { Text("Check companion permissions") }
+            }
             SoftCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Today's adventures", fontWeight = FontWeight.Bold)
@@ -71,6 +92,7 @@ fun HomeScreen(vm: KinViewModel, pref: UserPreferences, openTasks: () -> Unit, o
     }
     editing?.let { task -> TaskEditor(task, goals, { editing = null }, { vm.action { vm.repository.saveTask(it); editing = null } }) }
     if (help) CantStartDialog(vm, { help = false }, openFocus)
+    if (breakSetup) BreakSetupDialog(vm, onDismiss = { breakSetup = false }, onStarted = { breakSetup = false; openFocus() })
 }
 
 @Composable

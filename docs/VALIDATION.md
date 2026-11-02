@@ -1,5 +1,10 @@
 # Validation record
 
+## 0.5.1 permission and overlay repair
+
+- 42 unit tests pass locally; app/test APKs assemble and lint has no findings before the final Home readiness label adjustment. The device suite now defines 51 scenarios per API. API 26/35 execution and final APK publication are pending.
+- Fixes explicit planned timers being hidden by quiet hours, adds a visible cross-app countdown, first-open/upgrade permission setup and a real preview window, and separates break/focus entry points. No database schema change.
+
 ## 0.5 break/focus cycle validation
 
 - Tested app/test revision: [`e1f92d1`](https://github.com/hosannaute/kin_-adhd_-companion/commit/e1f92d1eb9eaa56b81d620f825394b04409c52e8). [CI run 41357705819](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41357705819) completed successfully: build, API 26 and API 35 jobs all passed. The publication follow-up changes only documentation and the APK; tested app/test/build source is unchanged.
