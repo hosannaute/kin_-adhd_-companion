@@ -193,7 +193,7 @@ class BreakCycleTest {
         expect("Hello, dreamer")
         compose.onNodeWithText("Take a scrolling break").performScrollTo().performClick()
         expect("Plan a scrolling break")
-        compose.onNodeWithText(task.title).performScrollTo().performClick()
+        compose.onNode(hasText(task.title) and hasAnyAncestor(isDialog())).performScrollTo().performClick()
         compose.onNodeWithText("Begin break").performClick()
         expect("Your scrolling break")
         assertEquals(task.id, app.database.dao().currentBreak()!!.taskId)
