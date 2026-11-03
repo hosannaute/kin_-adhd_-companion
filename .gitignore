@@ -9,3 +9,7 @@ local.properties
 .DS_Store
 
 __pycache__/
+
+*.p12
+
+*private*signing*.zip

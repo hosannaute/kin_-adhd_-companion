@@ -94,10 +94,15 @@ fun WorldLandscape(modifier: Modifier = Modifier, night: Boolean = false, unlock
     Canvas(modifier) {
         val w = size.width; val h = size.height
         drawRect(Brush.verticalGradient(if (night) listOf(Color(0xFF192B46), Color(0xFF557781))
-            else listOf(Color(0xFFB9D7E7), Color(0xFFEEE3D6), Color(0xFFF3DCBA))))
+            else listOf(Color(0xFFE0DFF5), Color(0xFFF3ECD9), Color(0xFFDEEEE6))))
         drawCircle(if (night) Color(0xFFFAEAC5) else Color(0xFFFFE9B2), w*.08f, Offset(w*.78f,h*.19f))
         fun mountain(x: Float, y: Float, width: Float, color: Color) {
-            drawPath(Path().apply { moveTo(x-width/2,h*.78f); lineTo(x,y); lineTo(x+width/2,h*.78f); close() }, color)
+            drawPath(Path().apply {
+                moveTo(x-width/2,h*.78f)
+                cubicTo(x-width*.3f,y+h*.14f,x-width*.17f,y,x,y)
+                cubicTo(x+width*.17f,y,x+width*.3f,y+h*.14f,x+width/2,h*.78f)
+                close()
+            }, color)
         }
         mountain(w*.67f,h*.22f,w*.67f,Color(0xFF94AEB9)); mountain(w*.88f,h*.37f,w*.6f,Color(0xFF7E9FAB))
         drawOval(Color(0xFF88ABA0), Offset(-w*.4f,h*.54f), Size(w*1.5f,h*.65f))
