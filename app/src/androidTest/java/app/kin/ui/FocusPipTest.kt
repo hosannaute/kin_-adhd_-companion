@@ -23,6 +23,7 @@ import app.kin.MainActivity
 import app.kin.data.*
 import app.kin.services.FloatingCompanionService
 import app.kin.services.PipVisibility
+import app.kin.services.BreakTimerService
 import app.kin.services.UsageFixtureActivity
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
@@ -192,6 +193,7 @@ class FocusPipTest {
         if (automation.rootInActiveWindow?.packageName == app.packageName + ".test") shell("input keyevent 4")
         await { !PipVisibility.visible.value }
         app.database.dao().currentFocus()?.let { app.repository.stopFocus(it.id) }
+        app.stopService(Intent(app, BreakTimerService::class.java))
         app.database.dao().allTasks().forEach { app.repository.deleteTask(it.id) }
         appOp("SYSTEM_ALERT_WINDOW", if (hadOverlay) "allow" else "default")
         appOp("PICTURE_IN_PICTURE", when(previousPip) {
@@ -260,12 +262,13 @@ class FocusPipTest {
         appOp("SYSTEM_ALERT_WINDOW", "allow")
         launchFocus()
         scenario!!.onActivity { assertTrue(FloatingCompanionService.start(it)) }
-        await { FloatingCompanionService.status.value.visible }
+        await { FloatingCompanionService.status.value.running && !FloatingCompanionService.status.value.visible }
         enter()
         await { !FloatingCompanionService.status.value.visible }
         assertTrue(FloatingCompanionService.status.value.running)
         dismiss()
-        await { FloatingCompanionService.status.value.visible }
+        await { BreakTimerService.status.value.visible }
+        await { FloatingCompanionService.status.value.running && !FloatingCompanionService.status.value.visible }
         val current = app.database.dao().currentFocus()!!
         assertEquals(id, current.id); assertTrue(current.running)
         assertFalse(current.ended)
@@ -293,7 +296,7 @@ class FocusPipTest {
         appOp("SYSTEM_ALERT_WINDOW", "allow")
         launchFocus()
         scenario!!.onActivity { assertTrue(FloatingCompanionService.start(it)) }
-        await { FloatingCompanionService.status.value.visible }
+        await { FloatingCompanionService.status.value.running && !FloatingCompanionService.status.value.visible }
         val notifications = app.getSystemService(NotificationManager::class.java)
         await { notifications.activeNotifications.any { it.id == 21002 } }
         notifications.activeNotifications.single { it.id == 21002 }.notification.actions

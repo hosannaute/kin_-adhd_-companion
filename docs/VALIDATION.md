@@ -1,5 +1,10 @@
 # Validation record
 
+## 0.6 movable timer and quick choices
+
+- 48 unit tests pass locally. App and instrumentation APKs compile. The suite defines 55 device scenarios per API; final API 26/35 execution and APK publication are pending.
+- Covers a shared break/focus timer icon, actual dragging/docking/rotation, window recovery, outside-touch collapse, remembered presets/tasks, focus notification controls and shorter onboarding. See [MOVABLE_TIMER.md](MOVABLE_TIMER.md).
+
 ## 0.5.1 permission and overlay repair
 
 - Tested app/test revision: [`01351d1`](https://github.com/hosannaute/kin_-adhd_-companion/commit/01351d15f5170bfe59cb3eaa90c7d25aadc85aa2). [CI run 41415482372](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41415482372) completed successfully: build, API 26 and API 35 jobs all passed. **42 unit tests and 51 device scenarios per API passed, with 0 failures and 0 skips.** Completed JUnit counts appear in check annotations. The publication follow-up changes only this record and APK/checksum files; tested app/test/build source is unchanged.

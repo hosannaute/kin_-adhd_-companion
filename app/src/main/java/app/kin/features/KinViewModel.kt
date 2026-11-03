@@ -26,6 +26,7 @@ class KinViewModel(val app: KinApplication) : ViewModel() {
     val preferences = app.preferences.flow.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val permissionSetupReviewed = app.preferences.permissionSetupReviewed.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val focusSetupRequested = MutableStateFlow(false)
+    val timerOptions = app.timerPreferences.flow.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     private val _breakFocusRequest = MutableStateFlow<BreakEntry?>(null)
     val breakFocusRequest = _breakFocusRequest.asStateFlow()
     fun chooseBreakFocus(value: BreakSession) { _breakFocusRequest.value = BreakEntry(value.id, value.revision) }

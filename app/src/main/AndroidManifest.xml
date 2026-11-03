@@ -22,7 +22,7 @@
         </service>
         <service android:name=".services.BreakTimerService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-started break countdown with persistent pause/stop controls and an optional permission-granted companion window prompting a return to a chosen task" />
+                android:value="User-started break and focus countdowns with persistent pause/stop controls and a movable companion timer icon prompting a return to a chosen task" />
         </service>
         <service android:name=".services.FloatingCompanionService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
@@ -38,6 +38,7 @@
         <activity android:name=".ReminderActivity" android:exported="false" android:supportsPictureInPicture="true"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation" />
         <receiver android:name=".services.ReminderActionReceiver" android:exported="false" />
+        <receiver android:name=".services.FocusTimerActionReceiver" android:exported="false" />
         <receiver android:name=".services.BreakActionReceiver" android:exported="false" />
     </application>
 </manifest>

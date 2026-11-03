@@ -53,31 +53,44 @@ fun BreakPermissions() {
 fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: () -> Unit, onStarted: () -> Unit = onDismiss) {
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     val goals by vm.goals.collectAsStateWithLifecycle()
-    var taskId by rememberSaveable { mutableStateOf(initialTaskId) }
-    var goalId by rememberSaveable { mutableStateOf(tasks.firstOrNull { it.id == initialTaskId }?.goalId) }
-    var minutes by rememberSaveable { mutableStateOf("5") }
+    val recent by vm.timerOptions.collectAsStateWithLifecycle()
+    val options = recent ?: return
+    val initial = tasks.firstOrNull { it.id == initialTaskId && !it.resolved }
+        ?: tasks.firstOrNull { it.id == options.taskId && !it.resolved } ?: tasks.firstOrNull { !it.resolved }
+    var taskId by rememberSaveable { mutableStateOf(initial?.id) }
+    var goalId by rememberSaveable { mutableStateOf(if (options.taskId == initial?.id) options.goalId.takeIf { id -> goals.any { it.id == id && !it.achieved } }
+        else initial?.goalId?.takeIf { id -> goals.any { it.id == id && !it.achieved } }) }
+    var minutes by rememberSaveable { mutableStateOf(options.breakMinutes.toString()) }
+    var taskPicked by rememberSaveable { mutableStateOf(false) }
+    var goalPicked by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(tasks,goals) {
+        if (!taskPicked && taskId == null) taskId = initial?.id
+        if (!goalPicked) goalId = if (options.taskId == taskId) options.goalId.takeIf { id -> goals.any { it.id == id && !it.achieved } }
+            else tasks.firstOrNull { it.id == taskId }?.goalId?.takeIf { id -> goals.any { it.id == id && !it.achieved } }
+    }
+
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text("Plan a scrolling break") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Choose the task you'll return to. When the break ends, your companion will help you start.")
-            OutlinedTextField(minutes, { minutes = it.filter(Char::isDigit).take(3) }, label = { Text("Break minutes (1–180)") }, singleLine = true)
-            Text("Return to task", fontWeight = FontWeight.Bold)
+            MinutesPicker(minutes, { minutes = it }, listOf(5,10,15,20), "Break minutes")
             if (tasks.none { !it.resolved }) Text("Create a pending task in Tasks first.")
-            tasks.filter { !it.resolved }.forEach { task -> FilterChip(taskId == task.id, {
-                taskId = task.id; goalId = task.goalId?.takeIf { id -> goals.any { it.id == id && !it.achieved } }
-            }, label = { Text(task.title) }) }
-            Text("Personal goal for your reminders")
-            FilterChip(goalId == null, { goalId = null }, label = { Text("Use just my task") })
-            goals.filter { !it.achieved }.forEach { goal -> FilterChip(goalId == goal.id, { goalId = goal.id }, label = { Text(goal.title) }) }
+            ChoiceList("Return to task", tasks.firstOrNull { it.id == taskId }?.title ?: "Choose a task",
+                tasks.filter { !it.resolved }.map { it.id.toString() to it.title }) { id ->
+                taskPicked = true; goalPicked = false; taskId = id.toLong(); goalId = tasks.firstOrNull { it.id == taskId }?.goalId?.takeIf { key -> goals.any { it.id == key && !it.achieved } }
+            }
+            ChoiceList("Personal goal", goals.firstOrNull { it.id == goalId }?.title ?: "Use just my task",
+                listOf("0" to "Use just my task") + goals.filter { !it.achieved }.map { it.id.toString() to it.title }) { goalPicked = true; goalId = it.toLong().takeIf { id -> id > 0 } }
             BreakPermissions()
-            Text("A small countdown stays over other apps. At zero, a large reminder appears, including during quiet hours. Notification sounds stay quiet.")
+            Text("A movable icon stays at the screen edge. Tap it to see the countdown. At zero, a large reminder appears, including during quiet hours. Notification sounds stay quiet.")
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { TextButton(enabled = !saving && taskId != null && minutes.toIntOrNull() in 1..180, onClick = {
         saving = true
         vm.action {
             try {
+                vm.app.timerPreferences.breakChoice(minutes.toInt(), taskId!!, goalId)
                 vm.app.breaks.begin(taskId!!, goalId, minutes.toInt())
                 BreakTimerService.start(vm.app)
                 onStarted()
@@ -183,23 +196,22 @@ fun BreakCycleHost(vm: KinViewModel, pref: UserPreferences, entry: BreakEntry?, 
 
 @Composable
 fun FocusDurationDialog(vm: KinViewModel, value: BreakSession, revision: Int, onDismiss: () -> Unit, onStarted: () -> Unit) {
-    var minutes by rememberSaveable(value.id) { mutableStateOf("25") }
+    val recent by vm.timerOptions.collectAsStateWithLifecycle()
+    val options = recent ?: return
+    var minutes by rememberSaveable(value.id) { mutableStateOf(options.focusMinutes.toString()) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text("How long do you want to focus?") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(value.taskTitle)
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                listOf(5, 15, 25, 45).forEach { amount -> FilterChip(minutes == amount.toString(), { minutes = amount.toString() }, label = { Text("$amount m") }) }
-            }
-            OutlinedTextField(minutes, { minutes = it.filter(Char::isDigit).take(3) }, label = { Text("Focus minutes (1–180)") }, singleLine = true)
+            MinutesPicker(minutes, { minutes = it }, listOf(5,10,15,25,45), "Focus minutes")
             Text("Your break ends when you start this focus session. Finishing early awards no XP.", style = MaterialTheme.typography.bodySmall)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { TextButton(enabled = !saving && minutes.toIntOrNull() in 1..180, onClick = {
         saving = true
         vm.action {
-            try { vm.app.breaks.startFocus(value.id, revision, minutes.toInt()); onStarted()
+            try { vm.app.timerPreferences.focusChoice(minutes.toInt(), value.taskId); vm.app.breaks.startFocus(value.id, revision, minutes.toInt()); onStarted()
             } catch (e: CancellationException) { throw e
             } catch (e: Exception) { error = e.message
             } finally { saving = false }

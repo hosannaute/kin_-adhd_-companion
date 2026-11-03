@@ -95,9 +95,10 @@ class FloatingCompanionService : Service(), LifecycleOwner, SavedStateRegistryOw
             scope.launch {
                 try {
                     combine(app.companionMode.flow, app.preferences.flow, PipVisibility.visible, BreakPromptVisibility.visible,
-                        app.database.dao().activeBreak()) { mode, preference, _, _, cycle -> Triple(mode, preference, cycle) }
-                        .collect { (mode, preference, cycle) ->
-                            plannedBreak = cycle?.phase in listOf("RUNNING", "PAUSED", "DUE")
+                        combine(app.database.dao().activeBreak(), app.database.dao().activeFocus()) { rest, focus ->
+                            rest?.phase in listOf("RUNNING", "PAUSED", "DUE") || focus != null }) { mode, preference, _, _, timer -> Triple(mode, preference, timer) }
+                        .collect { (mode, preference, timer) ->
+                            plannedBreak = timer
                             val changed = mode.monitorUsage != options.monitorUsage ||
                                 mode.selectedApps != options.selectedApps || mode.thresholdMinutes != options.thresholdMinutes
                             options = mode; prefs = preference
@@ -147,9 +148,9 @@ class FloatingCompanionService : Service(), LifecycleOwner, SavedStateRegistryOw
             !getSystemService(PowerManager::class.java).isInteractive
         val pip = PipVisibility.visible.value
         val breakPrompt = BreakPromptVisibility.visible.value
-        if (paused || quiet || locked || pip || breakPrompt) {
+        if (paused || quiet || locked || pip || breakPrompt || plannedBreak) {
             poller.reset(); nextUsagePoll = 0; expanded = false; hide()
-            status.value = FloatingStatus(true, false, when { paused -> "Paused for 15 minutes"; quiet -> "Quiet hours · companion resting";
+            status.value = FloatingStatus(true, false, when { paused -> "Paused for 15 minutes"; plannedBreak -> "Timer companion is active · floating companion resting"; quiet -> "Quiet hours · companion resting";
                 pip -> "Picture-in-Picture is visible · floating companion resting";
                 breakPrompt -> "Break reminder is visible · floating companion resting"; else -> "Resting while your screen is locked or off" })
             return

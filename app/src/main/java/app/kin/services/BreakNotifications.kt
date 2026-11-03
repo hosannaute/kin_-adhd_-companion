@@ -36,7 +36,7 @@ object BreakNotifications {
     private fun channels(context: Context) {
         if (configured) return
         context.getSystemService(NotificationManager::class.java).createNotificationChannels(listOf(
-            NotificationChannel("kin_break_timer", "Break timer controls", NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) },
+            NotificationChannel("kin_break_timer", "Timer controls", NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) },
             NotificationChannel("kin_break_due", "Return to your task", NotificationManager.IMPORTANCE_HIGH)))
         configured = true
     }
