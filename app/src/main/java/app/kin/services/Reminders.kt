@@ -21,6 +21,7 @@ import app.kin.data.resolved
 import app.kin.domain.TaskEntryAction
 import androidx.core.net.toUri
 import app.kin.domain.ReminderPolicy
+import app.kin.domain.ReminderStyle
 import kotlinx.coroutines.flow.first
 import java.time.LocalTime
 import java.util.concurrent.TimeUnit
@@ -77,7 +78,7 @@ class KinWorker(context: Context, parameters: WorkerParameters) : CoroutineWorke
                 val preferences = app.preferences.flow.first()
                 if (!task.resolved && task.reminder && preferences.reminders &&
                     !ReminderPolicy.isQuiet(LocalTime.now().hour, preferences.quietStart, preferences.quietEnd)) {
-                    Notifications.task(app, task)
+                    Notifications.task(app, task, preferences.reminderStyle)
                 }
             }
             Result.success()
@@ -100,7 +101,7 @@ object Notifications {
             Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) &&
             NotificationManagerCompat.from(context).areNotificationsEnabled()
 
-    fun task(context: Context, task: Task) {
+    fun task(context: Context, task: Task, style: ReminderStyle = ReminderStyle.GENTLE) {
         if (task.resolved || !allowed(context)) return
         fun open(action: TaskEntryAction) = PendingIntent.getActivity(context, 0,
             Intent(context, ReminderActivity::class.java)
@@ -115,8 +116,10 @@ object Notifications {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val options = open(TaskEntryAction.OPTIONS)
         val notification = NotificationCompat.Builder(context, "kin_gentle").setSmallIcon(R.drawable.ic_kin)
-            .setContentTitle("It's time for our next adventure").setContentText(task.title)
-            .setStyle(NotificationCompat.BigTextStyle().bigText("${task.title}\nStart small, snooze, or open Options to break it down, reschedule or skip."))
+            .setContentTitle(if (style == ReminderStyle.FIRM) "Your scheduled task is due" else "It's time for our next adventure").setContentText(task.title)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(if (style == ReminderStyle.FIRM)
+                "${task.title}\nChoose Start to focus, Snooze for ten minutes, or Options to plan your next step."
+                else "${task.title}\nStart small, snooze, or open Options to break it down, reschedule or skip."))
             .setContentIntent(options).setAutoCancel(true)
             .addAction(0, "Start", open(TaskEntryAction.START)).addAction(0, "Snooze 10 min", snooze)
             .addAction(0, "Options", options).build()

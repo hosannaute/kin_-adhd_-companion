@@ -59,7 +59,7 @@ fun SettingsScreen(vm: KinViewModel, pref: UserPreferences, openFocus: () -> Uni
         } }
         item { TimerAlertSettings(vm,pref,enabled) }
         item { SoftCard {
-            Text("Gentle reminders", fontWeight = FontWeight.Bold)
+            Text("Reminders", fontWeight = FontWeight.Bold)
             PreferenceSwitch("Allow task reminders", "Turn off anytime for an emergency pause.", pref.reminders) { value ->
                 vm.action {
                     vm.app.preferences.save(pref.copy(reminders = value))
@@ -76,6 +76,9 @@ fun SettingsScreen(vm: KinViewModel, pref: UserPreferences, openFocus: () -> Uni
             ChoiceList("Quiet hours start","%02d:00".format(pref.quietStart),hours) { vm.savePreferences(pref.copy(quietStart = it.toInt())) }
             ChoiceList("Quiet hours end","%02d:00".format(pref.quietEnd),hours) { vm.savePreferences(pref.copy(quietEnd = it.toInt())) }
             Text("Equal hours turn quiet hours off. Task reminders during quiet hours are skipped; timer reminders remain visible and silent. Android may delay background delivery.", style = MaterialTheme.typography.bodySmall)
+        } }
+        item { SoftCard {
+            Text("Reminder choices",style = MaterialTheme.typography.titleMedium)
             ChoiceList("Reminder wording",pref.reminderStyle.label,ReminderStyle.entries.map { it.name to it.label }) { vm.action { vm.app.preferences.setReminderStyle(ReminderStyle.valueOf(it)) } }
             Text(if (pref.reminderStyle == ReminderStyle.GENTLE) "Encouragement and a small next step." else "A direct reminder of your chosen task and goal.", style = MaterialTheme.typography.bodySmall)
             ChoiceList("Break snooze length","${pref.snoozeMinutes} minutes",listOf(5,10,15).map { it.toString() to "$it minutes" }) { vm.action { vm.app.preferences.setSnoozeMinutes(it.toInt()) } }
@@ -83,8 +86,8 @@ fun SettingsScreen(vm: KinViewModel, pref: UserPreferences, openFocus: () -> Uni
             Text("Reaching your chosen limit removes Snooze. You can still start the task or end the break.", style = MaterialTheme.typography.bodySmall)
         } }
         item { Button(onClick = openFocus, modifier = Modifier.fillMaxWidth()) { Text("Open focus timer") } }
-        item { FloatingSettings(vm) }
         item { BackupSettings(vm) }
+        item { FloatingSettings(vm) }
         item { SoftCard {
             Text("Private, offline, yours", fontWeight = FontWeight.Bold)
             Text("No accounts, ads, analytics, or cloud chat. Your data stays on this device unless you save a backup file. Android automatic backup is disabled; save a backup before uninstalling.")

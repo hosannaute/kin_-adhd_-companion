@@ -52,7 +52,8 @@ class OfflineReleaseUiTest {
     }
     private fun reveal(matcher: SemanticsMatcher) { compose.onNodeWithTag("settings_screen").performScrollToNode(matcher) }
     private fun choose(label: String,id: String) {
-        reveal(hasTestTag("choice:$label"));compose.onNodeWithTag("choice:$label").performClick()
+        reveal(hasTestTag("choice:$label"));compose.onNodeWithTag("choice:$label").performScrollTo().assertIsDisplayed().performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("option:$label:$id").fetchSemanticsNodes(atLeastOneRootRequired=false).isNotEmpty() }
         compose.onNodeWithTag("option:$label:$id").performClick()
     }
     @Test fun listChoicesPersistAcrossActivityRecreationWithoutTyping()=runBlocking<Unit> {

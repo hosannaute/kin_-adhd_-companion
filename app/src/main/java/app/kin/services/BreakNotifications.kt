@@ -80,9 +80,12 @@ object BreakNotifications {
         try { NotificationManagerCompat.from(app).notify(tag(value.id), DUE_ID, notification) } catch (_: SecurityException) { }
     }
     suspend fun snoozed(context: Context, value: BreakSession) {
-        if (!Notifications.allowed(context)) return
+        if (!Notifications.allowed(context) || value.phase != "RUNNING") return
         channels(context)
-        val pref = (context.applicationContext as KinApplication).preferences.flow.first()
+        val app = context.applicationContext as KinApplication
+        val pref = app.preferences.flow.first()
+        val saved = app.database.dao().breakSession(value.id)
+        if (saved?.phase != "RUNNING" || saved.revision != value.revision || app.breaks.remaining(saved) <= 0) return
         val message = BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount, pref.reminderStyle)
         try { NotificationManagerCompat.from(context).notify(tag(value.id), DUE_ID,
             NotificationCompat.Builder(context, "kin_break_timer").setSmallIcon(R.drawable.ic_kin)

@@ -123,11 +123,15 @@ class TimerAlertsTest {
         app.preferences.setSnoozeMinutes(15)
         old.send()
         await { runBlocking { dao.breakSession(value.id)!!.snoozeCount==1 } }
+        await { WorkManager.getInstance(app).getWorkInfosForUniqueWork("break-action:${value.id}:${value.revision}").get().any { it.state.isFinished } }
         val snoozed=dao.breakSession(value.id)!!
         assertTrue(app.breaks.remaining(snoozed) in 570_000L..600_000L)
         val next=snoozed.copy(phase="DUE",remainingMillis=0);dao.updateBreak(next);BreakNotifications.due(app,next)
         await { manager.activeNotifications.any { it.tag=="kin.break.${value.id}" && it.notification.getText()=="Your break is over" } }
+        BreakNotifications.snoozed(app,next) // A delayed acknowledgement must not replace the new due reminder.
+        delay(150)
         val notification=manager.activeNotifications.single { it.tag=="kin.break.${value.id}" }.notification
+        assertEquals("Your break is over",notification.getText())
         assertTrue(notification.actions.none { it.title.toString().startsWith("Snooze") })
         assertFalse(app.breaks.snooze(next.id,next.revision));old.send();delay(300)
         assertEquals(1,dao.breakSession(next.id)!!.snoozeCount)

@@ -15,6 +15,7 @@ import app.kin.KinApplication
 import app.kin.MainActivity
 import app.kin.ReminderActivity
 import app.kin.data.*
+import app.kin.domain.ReminderStyle
 import androidx.work.WorkManager
 import androidx.work.WorkInfo
 import kotlinx.coroutines.runBlocking
@@ -61,6 +62,17 @@ class ReminderActionsTest {
         app.repository.saveTask(Task(title = title, minutes = 5, description = "Preserve my notes",
             reminder = true, scheduledAt = System.currentTimeMillis() + 3_600_000))
         return app.database.dao().allTasks().single { it.title == title }
+    }
+    @Test fun scheduledTaskWorkerUsesTheChosenFirmWording() = runBlocking<Unit> {
+        app.preferences.setReminderStyle(ReminderStyle.FIRM)
+        val task = create("A task I chose")
+        app.database.dao().updateTask(task.copy(scheduledAt = System.currentTimeMillis() - 1000))
+        WorkManager.getInstance(app).enqueue(androidx.work.OneTimeWorkRequestBuilder<KinWorker>()
+            .setInputData(androidx.work.workDataOf("task" to task.id)).build())
+        compose.waitUntil(30_000) { notifications.activeNotifications.any { it.tag == Notifications.taskTag(task.id) } }
+        val posted = notifications.activeNotifications.single { it.tag == Notifications.taskTag(task.id) }.notification
+        assertEquals("Your scheduled task is due", posted.extras.getString(Notification.EXTRA_TITLE))
+        assertEquals(task.title, posted.extras.getString(Notification.EXTRA_TEXT))
     }
     @Test fun actualStartPendingIntentOpensFocusForItsTaskAndDoesNotDuplicateSession() = runBlocking<Unit> {
         val task = create("Read a chapter")

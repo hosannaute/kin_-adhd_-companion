@@ -3,7 +3,7 @@
 ## 0.8 offline release and timer alerts
 
 - Candidate includes versioned backup/restore, timer sound/vibration choices, distinct original chimes, shared natural-focus completion alerts, gentle/firm wording, optional snooze limits, wrapping presets and a phone-check guide.
-- Local `testDebugUnitTest`: **56 passed, 0 failed, 0 skipped**. App/test APK assembly passes; `lintDebug` has **0 findings**. **76 device scenarios per API are defined**; API 26/35 execution and APK publication are pending. Physical-phone sound, OEM/background and broad accessibility acceptance remain manual checks. See [OFFLINE_RELEASE.md](OFFLINE_RELEASE.md).
+- Local `testDebugUnitTest`: **56 passed, 0 failed, 0 skipped**. App/test APK assembly passes; `lintDebug` has **0 findings**. **77 device scenarios per API are defined**; API 26/35 execution and APK publication are pending. Physical-phone sound, OEM/background and broad accessibility acceptance remain manual checks. See [OFFLINE_RELEASE.md](OFFLINE_RELEASE.md).
 
 ## 0.7 persistent break and clean design
 
