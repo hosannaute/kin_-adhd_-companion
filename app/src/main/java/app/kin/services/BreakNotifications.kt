@@ -10,11 +10,11 @@ import app.kin.KinApplication
 import app.kin.R
 import app.kin.ReminderActivity
 import app.kin.data.BreakSession
+import app.kin.data.UserPreferences
 import app.kin.domain.BreakPolicy
-import app.kin.domain.ReminderPolicy
+import app.kin.domain.AlertPolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
-import java.time.LocalTime
 
 object BreakNotifications {
     const val FOREGROUND_ID = 22010
@@ -28,10 +28,10 @@ object BreakNotifications {
         .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
     private fun open(context: Context, value: BreakSession, choose: Boolean) = PendingIntent.getActivity(context, 0,
         intent(context, value, choose), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    private fun action(context: Context, value: BreakSession, name: String) = PendingIntent.getBroadcast(context, 0,
+    private fun action(context: Context, value: BreakSession, name: String, snoozeMinutes: Int = 5) = PendingIntent.getBroadcast(context, 0,
         Intent(context, BreakActionReceiver::class.java).setAction("app.kin.BREAK_$name")
-            .setData("kin-break://action/${value.id}/${value.revision}/$name".toUri())
-            .putExtra("breakId", value.id).putExtra("revision", value.revision).putExtra("operation", name),
+            .setData("kin-break://action/${value.id}/${value.revision}/$name/$snoozeMinutes".toUri())
+            .putExtra("breakId", value.id).putExtra("revision", value.revision).putExtra("operation", name).putExtra("snoozeMinutes",snoozeMinutes),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     private fun channels(context: Context) {
         if (configured) return
@@ -40,7 +40,7 @@ object BreakNotifications {
             NotificationChannel("kin_break_due", "Return to your task", NotificationManager.IMPORTANCE_HIGH)))
         configured = true
     }
-    fun foreground(context: Context, value: BreakSession?, remaining: Long = 0): Notification {
+    fun foreground(context: Context, value: BreakSession?, remaining: Long = 0, pref: UserPreferences = UserPreferences()): Notification {
         channels(context)
         val text = when (value?.phase) {
             "RUNNING" -> "${format(remaining)} · ${value.taskTitle}"
@@ -55,33 +55,38 @@ object BreakNotifications {
             when (value.phase) {
                 "RUNNING" -> builder.addAction(0, "Pause break", action(context, value, "PAUSE"))
                 "PAUSED" -> builder.addAction(0, "Resume break", action(context, value, "RESUME"))
-                "DUE" -> builder.addAction(0, "Start task", open(context, value, true)).addAction(0, "Snooze 5 min", action(context, value, "SNOOZE"))
+                "DUE" -> {
+                    builder.addAction(0, "Start task", open(context, value, true))
+                    if (AlertPolicy.canSnooze(value.snoozeCount,pref.snoozeLimit)) builder.addAction(0, "Snooze ${pref.snoozeMinutes} min", action(context, value, "SNOOZE",pref.snoozeMinutes))
+                }
             }
             builder.addAction(0, "Stop break", action(context, value, "STOP"))
         }
         return builder.build()
     }
     suspend fun due(app: KinApplication, value: BreakSession) {
-        if (KinVisibility.resumed.value || !Notifications.allowed(app) || !app.breaks.claimReminder(value.id, value.revision)) return
+        if (!Notifications.allowed(app)) return
         channels(app)
         val pref = app.preferences.flow.first()
-        val quiet = ReminderPolicy.isQuiet(LocalTime.now().hour, pref.quietStart, pref.quietEnd)
-        val message = BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount)
-        val notification = NotificationCompat.Builder(app, "kin_break_due").setSmallIcon(R.drawable.ic_kin)
+        if (!app.breaks.claimReminder(value.id, value.revision)) return
+        val message = BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount, pref.reminderStyle)
+        val builder = TimerAlerts.builder(app, TimerAlertKind.BREAK, pref)
             .setContentTitle("Your break is over").setContentText(message).setStyle(NotificationCompat.BigTextStyle().bigText(message))
-            .setContentIntent(open(app, value, true)).setAutoCancel(true).setSilent(quiet)
+            .setContentIntent(open(app, value, true))
             .addAction(0, "Start task", open(app, value, true))
-            .addAction(0, "Snooze 5 min", action(app, value, "SNOOZE"))
-            .addAction(0, "Stop break", action(app, value, "STOP")).build()
+        if (AlertPolicy.canSnooze(value.snoozeCount, pref.snoozeLimit))
+            builder.addAction(0, "Snooze ${pref.snoozeMinutes} min", action(app, value, "SNOOZE",pref.snoozeMinutes))
+        val notification = builder.addAction(0, "Stop break", action(app, value, "STOP")).build()
         try { NotificationManagerCompat.from(app).notify(tag(value.id), DUE_ID, notification) } catch (_: SecurityException) { }
     }
-    fun snoozed(context: Context, value: BreakSession) {
+    suspend fun snoozed(context: Context, value: BreakSession) {
         if (!Notifications.allowed(context)) return
         channels(context)
-        val message = BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount)
+        val pref = (context.applicationContext as KinApplication).preferences.flow.first()
+        val message = BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount, pref.reminderStyle)
         try { NotificationManagerCompat.from(context).notify(tag(value.id), DUE_ID,
             NotificationCompat.Builder(context, "kin_break_timer").setSmallIcon(R.drawable.ic_kin)
-                .setContentTitle("Five more minutes").setContentText(message).setStyle(NotificationCompat.BigTextStyle().bigText(message))
+                .setContentTitle(if (value.remainingMillis / 60_000 == 5L) "Five more minutes" else "${value.remainingMillis / 60_000} more minutes").setContentText(message).setStyle(NotificationCompat.BigTextStyle().bigText(message))
                 .setContentIntent(open(context, value, false)).setAutoCancel(true).setSilent(true).build())
         } catch (_: SecurityException) { }
     }
@@ -94,9 +99,11 @@ class BreakActionReceiver : BroadcastReceiver() {
         val id = intent.getLongExtra("breakId", 0)
         val revision = intent.getIntExtra("revision", -1)
         val operation = intent.getStringExtra("operation") ?: return
+        val minutes=intent.getIntExtra("snoozeMinutes",5)
+        if (operation=="SNOOZE" && minutes !in listOf(5,10,15)) return
         if (id <= 0 || revision < 0 || operation !in listOf("PAUSE", "RESUME", "SNOOZE", "STOP")) return
         WorkManager.getInstance(context).enqueueUniqueWork("break-action:$id:$revision", ExistingWorkPolicy.KEEP,
-            OneTimeWorkRequestBuilder<BreakActionWorker>().setInputData(workDataOf("breakId" to id, "revision" to revision, "operation" to operation)).build())
+            OneTimeWorkRequestBuilder<BreakActionWorker>().setInputData(workDataOf("breakId" to id, "revision" to revision, "operation" to operation, "snoozeMinutes" to minutes)).build())
     }
 }
 class BreakActionWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
@@ -106,7 +113,7 @@ class BreakActionWorker(context: Context, parameters: WorkerParameters) : Corout
         val changed = when (inputData.getString("operation")) {
             "PAUSE" -> app.breaks.pause(id, revision)
             "RESUME" -> app.breaks.resume(id, revision)
-            "SNOOZE" -> app.breaks.snooze(id, revision)
+            "SNOOZE" -> inputData.getInt("snoozeMinutes",5).takeIf { it in listOf(5,10,15) }?.let { app.breaks.snooze(id, revision,it) } ?: false
             "STOP" -> app.breaks.stop(id, revision)
             else -> false
         }

@@ -53,6 +53,20 @@ interface KinDao {
     @Query("SELECT * FROM achievements ORDER BY createdAt DESC") fun achievements(): Flow<List<Achievement>>
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertAchievement(achievement: Achievement)
     @Query("DELETE FROM achievements WHERE `key` = :key") suspend fun deleteAchievement(key: String)
+    @Query("SELECT * FROM goals") suspend fun allGoals(): List<PersonalGoal>
+    @Query("SELECT * FROM subtasks") suspend fun allSteps(): List<Subtask>
+    @Query("SELECT * FROM companion WHERE id = 1") suspend fun companionSnapshot(): CompanionState?
+    @Query("SELECT * FROM focus_sessions") suspend fun allSessions(): List<FocusSession>
+    @Query("SELECT * FROM break_sessions") suspend fun allBreaks(): List<BreakSession>
+    @Query("SELECT * FROM messages") suspend fun allMessages(): List<ConversationMessage>
+    @Query("SELECT * FROM achievements") suspend fun allAchievements(): List<Achievement>
+    @Query("DELETE FROM break_sessions") suspend fun clearBreaks()
+    @Query("DELETE FROM subtasks") suspend fun clearSteps()
+    @Query("DELETE FROM tasks") suspend fun clearTasks()
+    @Query("DELETE FROM goals") suspend fun clearGoals()
+    @Query("DELETE FROM focus_sessions") suspend fun clearSessions()
+    @Query("DELETE FROM achievements") suspend fun clearAchievements()
+    @Query("DELETE FROM companion") suspend fun clearCompanion()
 }
 
 @Database(entities = [Task::class, PersonalGoal::class, CompanionState::class,

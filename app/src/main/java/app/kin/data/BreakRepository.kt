@@ -7,6 +7,7 @@ import androidx.room.withTransaction
 import app.kin.domain.*
 import app.kin.services.BreakNotifications
 import app.kin.services.Scheduler
+import kotlinx.coroutines.flow.first
 
 class BreakRepository(private val context: Context, private val db: KinDatabase, private val scheduler: Scheduler,
                       private val focus: KinRepository,
@@ -64,19 +65,21 @@ class BreakRepository(private val context: Context, private val db: KinDatabase,
     suspend fun resume(id: Long, revision: Int): Boolean = mutate(id, revision, setOf("PAUSED")) { old ->
         old.copy(phase = "RUNNING", startedElapsed = elapsed(), bootCount = boot, dueAtWall = wall() + old.remainingMillis)
     }
-    suspend fun snooze(id: Long, revision: Int, minutes: Int = 5): Boolean {
-        require(minutes in 1..180)
-        return mutate(id, revision, setOf("DUE")) { old ->
-            old.copy(phase = "RUNNING", remainingMillis = minutes * 60_000L, startedElapsed = elapsed(),
-                bootCount = boot, dueAtWall = wall() + minutes * 60_000L, snoozeCount = old.snoozeCount + 1)
+    suspend fun snooze(id: Long, revision: Int, minutes: Int? = null): Boolean {
+        val pref = (context.applicationContext as app.kin.KinApplication).preferences.flow.first()
+        val duration = minutes ?: pref.snoozeMinutes
+        require(duration in 1..180)
+        return mutate(id, revision, setOf("DUE"), allowed = { AlertPolicy.canSnooze(it.snoozeCount, pref.snoozeLimit) }) { old ->
+            old.copy(phase = "RUNNING", remainingMillis = duration * 60_000L, startedElapsed = elapsed(),
+                bootCount = boot, dueAtWall = wall() + duration * 60_000L, snoozeCount = old.snoozeCount + 1)
         }
     }
     suspend fun stop(id: Long, revision: Int): Boolean = mutate(id, revision, setOf("RUNNING", "PAUSED", "DUE")) { it.copy(phase = "STOPPED") }
 
-    private suspend fun mutate(id: Long, revision: Int, phases: Set<String>, update: (BreakSession) -> BreakSession): Boolean {
+    private suspend fun mutate(id: Long, revision: Int, phases: Set<String>, allowed: (BreakSession) -> Boolean = { true }, update: (BreakSession) -> BreakSession): Boolean {
         val value = db.withTransaction {
             val old = dao.breakSession(id) ?: return@withTransaction null
-            if (old.revision != revision || old.phase !in phases) return@withTransaction null
+            if (old.revision != revision || old.phase !in phases || !allowed(old)) return@withTransaction null
             update(old).copy(revision = old.revision + 1).also { dao.updateBreak(it) }
         } ?: return false
         scheduler.cancelBreak(id)

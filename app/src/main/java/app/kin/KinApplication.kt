@@ -13,6 +13,7 @@ class KinApplication : Application() {
     val timerPreferences by lazy { TimerPreferences(this) }
     val scheduler by lazy { Scheduler(this) }
     val repository by lazy { KinRepository(this, database, scheduler) }
+    val backups by lazy { BackupManager(this) }
     val breaks by lazy { BreakRepository(this, database, scheduler, repository) }
     override fun onCreate() {
         super.onCreate()

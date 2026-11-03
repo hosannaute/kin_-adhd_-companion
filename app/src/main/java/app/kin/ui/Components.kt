@@ -67,6 +67,7 @@ fun TaskRow(task: Task, complete: () -> Unit, edit: () -> Unit, start: () -> Uni
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TaskEditor(task: Task?, goals: List<PersonalGoal>, onDismiss: () -> Unit, onSave: (Task) -> Unit,
                onDelete: (() -> Unit)? = null, onSnooze: (() -> Unit)? = null) {
@@ -98,7 +99,7 @@ fun TaskEditor(task: Task?, goals: List<PersonalGoal>, onDismiss: () -> Unit, on
             }
             if (customCategory) OutlinedTextField(category, { category = it }, label = { Text("Category name") }, singleLine = true)
             MinutesPicker(minutes, { minutes = it }, listOf(15,30,45,60), "Estimated minutes", 1440)
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 listOf("Today" to 0L, "Tomorrow" to 1L, "Next week" to 7L).forEach { (label, days) ->
                     FilterChip(date == LocalDate.now(zone).plusDays(days), { date = LocalDate.now(zone).plusDays(days); scheduleChanged = true }, label = { Text(label) })
                 }
@@ -116,7 +117,7 @@ fun TaskEditor(task: Task?, goals: List<PersonalGoal>, onDismiss: () -> Unit, on
             if (repeat != RepeatRule.NONE) Text("Completing or skipping creates the next future date. Missed dates won't pile up. Repeats keep this time zone.",
                 style = MaterialTheme.typography.bodySmall)
             Text("Priority")
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) { listOf("Gentle", "Normal", "High").forEachIndexed { i, label ->
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) { listOf("Gentle", "Normal", "High").forEachIndexed { i, label ->
                 FilterChip(priority == i, { priority = i }, label = { Text(label) })
             } }
             Row(verticalAlignment = Alignment.CenterVertically) {

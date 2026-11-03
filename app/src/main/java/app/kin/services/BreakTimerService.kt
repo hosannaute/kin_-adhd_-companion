@@ -87,8 +87,7 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             val rest = found?.let { app.breaks.refresh(it.id) }?.takeIf { it.phase in listOf("RUNNING", "PAUSED", "DUE") }
             var work = if (rest == null) app.database.dao().currentFocus() else null
             if (work != null) {
-                if (app.repository.refreshFocus(work.id)) Notifications.show(app, Int.MAX_VALUE,
-                    "A little progress, well earned", "Your focus session is complete. +15 XP", "focus")
+                app.repository.refreshFocus(work.id)
                 work = app.database.dao().currentFocus()
             }
             if (rest == null && work == null) { stopSelf(lastStartId); return@withLock }
@@ -107,10 +106,10 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             if (acknowledgment && !ack) expanded = false
             acknowledgment = ack
             remaining = if (rest != null) app.breaks.remaining(rest) else app.repository.remaining(work!!)
-            val key = "$nextMode:${rest?.revision}:${rest?.phase}:${work?.running}:${(remaining + 999) / 1000}"
+            val key = "$nextMode:${rest?.revision}:${rest?.phase}:${work?.running}:${(remaining + 999) / 1000}:${pref?.snoozeMinutes}:${pref?.snoozeLimit}"
             if (key != notificationKey) {
                 try { getSystemService(NotificationManager::class.java).notify(BreakNotifications.FOREGROUND_ID,
-                    if (rest != null) BreakNotifications.foreground(this, rest, remaining) else FocusTimerNotifications.foreground(this, work!!, remaining)) }
+                    if (rest != null) BreakNotifications.foreground(this, rest, remaining, pref ?: UserPreferences()) else FocusTimerNotifications.foreground(this, work!!, remaining)) }
                 catch (_: SecurityException) { }
                 notificationKey = key
             }

@@ -18,12 +18,13 @@ fun BreakPromptPanel(value: BreakSession, pref: UserPreferences, stage: Evolutio
     Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxWidth().heightIn(max = maxHeight.dp).verticalScroll(rememberScrollState()).padding(18.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(if (snoozed) "Five more minutes" else "Your break is over", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(if (snoozed) { if (value.remainingMillis / 60_000 == 5L) "Five more minutes" else "${value.remainingMillis / 60_000} more minutes" } else "Your break is over", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             CompanionArt(stage, pref.reducedMotion, Modifier.fillMaxWidth().height(180.dp), CreatureMood.WAVING)
             Text(value.taskTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount))
+            Text(BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount, pref.reminderStyle))
             Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) { Text("Start task") }
-            if (!snoozed) OutlinedButton(onClick = onSnooze, modifier = Modifier.fillMaxWidth()) { Text("Snooze 5 min") }
+            if (!snoozed && AlertPolicy.canSnooze(value.snoozeCount,pref.snoozeLimit)) OutlinedButton(onClick = onSnooze, modifier = Modifier.fillMaxWidth()) { Text("Snooze ${pref.snoozeMinutes} min") }
+            if (!snoozed && !AlertPolicy.canSnooze(value.snoozeCount,pref.snoozeLimit)) Text("Your snooze limit is reached. Choose a focus duration or end the break.", style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = onStop) { Text("Stop break") }
         }
     }

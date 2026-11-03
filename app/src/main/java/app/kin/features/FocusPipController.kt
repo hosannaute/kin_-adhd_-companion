@@ -85,8 +85,7 @@ class FocusPipController(private val activity: ComponentActivity, private val ap
                                 _state.value = _state.value.copy(session = selected, remainingMillis = remaining)
                                 updateActions()
                                 if (selected.running && !selected.ended && remaining == 0L) {
-                                    if (repository.refreshFocus(selected.id)) Notifications.show(app, Int.MAX_VALUE,
-                                        "A little progress, well earned", "Your focus session is complete. +15 XP", "focus")
+                                    repository.refreshFocus(selected.id)
                                     break // Room emits the ended session; XP is guarded by its transaction.
                                 }
                                 if (selected.ended) break

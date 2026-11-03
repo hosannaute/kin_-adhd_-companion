@@ -1,6 +1,6 @@
 # Implementation and acceptance status
 
-The supplied KIN master specification and six-screen image guide the project. Initial local source was created on `development/kin-android`. A successful `git ls-remote` outside the command sandbox confirmed that the remote has no refs. This is an initial project, not a replacement of existing remote code.
+The supplied KIN master specification and six-screen image guide the project. This document separates implemented source and completed test evidence from physical-device and production acceptance.
 
 ## Reproduce the build and finish device acceptance
 
@@ -23,6 +23,7 @@ The supplied KIN master specification and six-screen image guide the project. In
 - Offline planner (0.3): daily/weekly/monthly repeats, persistent subtasks, native schedule pickers, Start/Snooze/Options notifications, task-specific breakdown/reschedule/skip and a schema 1 → 2 migration. See [behavior and limits](OFFLINE_PLANNER.md).
 - Focus Picture-in-Picture (0.4): native pinned companion/timer, pause/resume/finish actions, expand/dismiss behavior, settings recovery and overlay coordination. See [behavior and device-validation scope](PICTURE_IN_PICTURE.md).
 
+- Offline release and alerts (0.8): selectable timer sound/vibration/silent modes, distinct original chimes, one-alert completion paths, gentle/firm wording, optional snooze limits, versioned backup/restore, wrapping presets, a real one-minute phone-check guide and a portable handover. See [behavior and handover](OFFLINE_RELEASE.md).
 - Persistent break/design refresh (0.7): always-visible active break countdown in KIN and other apps, larger-font layout, unified typography/colour/cards and a calmer Home/Focus layout. See [design review](DESIGN_REVIEW.md).
 - Movable timer and comfort (0.6): one docked icon for break/focus, expandable controls, position restoration, preset/list choices and short onboarding. See [behavior](MOVABLE_TIMER.md).
 - Permission/overlay repair (0.5.1): first-open/upgrade permission setup, notification prompt, real overlay test, visible break countdown, explicit timers during quiet hours and direct Home/Focus entry points.
@@ -31,10 +32,10 @@ The supplied KIN master specification and six-screen image guide the project. In
 ## Still unimplemented
 
 - Newer Android/OEM overlay and foreground-service acceptance, real selected-app threshold observations, and physical-device battery testing. Local overlay and UsageStats implementations are present; see FLOATING_COMPANION.md. No scrolling gesture/content classification is claimed.
-- Richer per-task reminder policies; repeated and firm-mode reminders with explicit limits and emergency stop. Precise alarms, if justified, need proper permission and denial flows.
+- Richer per-task repeated reminder policies. Firm break wording and optional snooze limits are implemented in 0.8; automatic escalation loops and exact alarms remain future work.
 - AI provider integration and explicit consent flow. Offline conversation works without one and does not claim AI capability.
-- Walking, waking transitions, richer thinking/encouragement animations, production-quality illustrated environments, interactive pathways/pond/overlook/village unlocks, parallax, configurable sound and intensity beyond reduced motion.
-- Data export/import, complete privacy/data-reset flow, localization, TalkBack and large-font audits, broader lifecycle coverage and real-device acceptance.
+- Walking, waking transitions, richer thinking/encouragement animations, production-quality illustrated environments, interactive pathways/pond/overlook/village unlocks, parallax and intensity beyond reduced motion. Timer notification sounds are configurable in 0.8.
+- Complete privacy/data-reset flow, localization, broad TalkBack and large-font audits, broader lifecycle coverage and real-device acceptance. Versioned file export/import is implemented in 0.8.
 - Full physical-device acceptance and production release preparation. Remote Actions evidence is linked in VALIDATION.md.
 
 ## Acceptance checklist

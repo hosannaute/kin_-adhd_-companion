@@ -1,5 +1,9 @@
 package app.kin.features
 
+import android.net.Uri
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.kin.KinApplication
@@ -39,6 +43,35 @@ class KinViewModel(val app: KinApplication) : ViewModel() {
         try { block() } catch (e: CancellationException) { throw e }
         catch (e: Exception) { _error.value = e.message ?: "Something went wrong. Please try again." }
     } }
+    private val _backupBusy = MutableStateFlow(false)
+    val backupBusy = _backupBusy.asStateFlow()
+    private val _backupDraft = MutableStateFlow<BackupSnapshot?>(null)
+    val backupDraft = _backupDraft.asStateFlow()
+    private val _backupNotice = MutableStateFlow<String?>(null)
+    val backupNotice = _backupNotice.asStateFlow()
+    fun discardBackup() { _backupDraft.value = null }
+    private fun backupAction(work: suspend () -> Unit) {
+        if (_backupBusy.value) return
+        _backupBusy.value = true
+        action { try { work() } finally { _backupBusy.value = false } }
+    }
+    fun exportBackup(uri: Uri) = backupAction {
+        val bytes = app.backups.export()
+        withContext(Dispatchers.IO) {
+            (app.contentResolver.openOutputStream(uri,"wt") ?: throw IOException("Could not open the backup destination.")).use { it.write(bytes); it.flush() }
+        }
+        _backupNotice.value = "Backup saved. Keep this file somewhere private."
+    }
+    fun readBackup(uri: Uri) = backupAction {
+        _backupDraft.value = null
+        _backupDraft.value = withContext(Dispatchers.IO) {
+            app.backups.read(app.contentResolver.openInputStream(uri) ?: throw IOException("Could not open this backup."))
+        }
+    }
+    fun restoreBackup() {
+        val draft = _backupDraft.value ?: return
+        backupAction { _backupNotice.value = app.backups.restore(draft); _backupDraft.value = null }
+    }
     fun context() = ConversationContext(tasks.value.firstOrNull { !it.resolved }?.title,
         goals.value.firstOrNull { !it.achieved }?.title, tasks.value.count { it.completed })
     fun send(text: String) = action { repository.send(text, context()) }

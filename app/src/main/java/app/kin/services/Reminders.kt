@@ -60,7 +60,7 @@ class KinWorker(context: Context, parameters: WorkerParameters) : CoroutineWorke
             val focusId = inputData.getLong("focus", 0)
             if (focusId != 0L) {
                 if (app.repository.refreshFocus(focusId)) {
-                    Notifications.show(app, Int.MAX_VALUE, "A little progress, well earned", "Your focus session is complete. +15 XP", "focus")
+                    // The repository posts the one completion alert for every completion path.
                 } else {
                     // WorkManager is inexact and can run early after a wall-clock change.
                     val session = app.database.dao().session(focusId)

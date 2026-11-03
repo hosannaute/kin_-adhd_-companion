@@ -54,7 +54,7 @@ fun BreakPermissions() {
 }
 
 @Composable
-fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: () -> Unit, onStarted: () -> Unit = onDismiss) {
+fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: () -> Unit, onStarted: () -> Unit = onDismiss, initialMinutes: Int? = null) {
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     val goals by vm.goals.collectAsStateWithLifecycle()
     val recent by vm.timerOptions.collectAsStateWithLifecycle()
@@ -64,7 +64,7 @@ fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: (
     var taskId by rememberSaveable { mutableStateOf(initial?.id) }
     var goalId by rememberSaveable { mutableStateOf(if (options.taskId == initial?.id) options.goalId.takeIf { id -> goals.any { it.id == id && !it.achieved } }
         else initial?.goalId?.takeIf { id -> goals.any { it.id == id && !it.achieved } }) }
-    var minutes by rememberSaveable { mutableStateOf(options.breakMinutes.toString()) }
+    var minutes by rememberSaveable { mutableStateOf((initialMinutes ?: options.breakMinutes).toString()) }
     var taskPicked by rememberSaveable { mutableStateOf(false) }
     var goalPicked by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(tasks,goals) {
@@ -78,7 +78,7 @@ fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: (
     AlertDialog(onDismissRequest = onDismiss, title = { Text("Plan a scrolling break") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Choose the task you'll return to. When the break ends, your companion will help you start.")
-            MinutesPicker(minutes, { minutes = it }, listOf(5,10,15,20), "Break minutes")
+            MinutesPicker(minutes, { minutes = it }, if (initialMinutes == 1) listOf(1,5,10,15,20) else listOf(5,10,15,20), "Break minutes")
             if (tasks.none { !it.resolved }) Text("Create a pending task in Tasks first.")
             ChoiceList("Return to task", tasks.firstOrNull { it.id == taskId }?.title ?: "Choose a task",
                 tasks.filter { !it.resolved }.map { it.id.toString() to it.title }) { id ->
@@ -107,6 +107,8 @@ fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: (
 
 @Composable
 fun ActiveBreakScreen(vm: KinViewModel, value: BreakSession, onStart: () -> Unit) {
+    val pref by vm.preferences.collectAsStateWithLifecycle()
+    val options = pref ?: return
     var left by remember(value.id) { mutableLongStateOf(vm.app.breaks.remaining(value)) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val status by BreakTimerService.status.collectAsStateWithLifecycle()
@@ -137,13 +139,13 @@ fun ActiveBreakScreen(vm: KinViewModel, value: BreakSession, onStart: () -> Unit
             Text("RETURN TO", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             Text(value.taskTitle, style = MaterialTheme.typography.titleLarge)
             if (value.goalTitle.isNotBlank()) Text(value.goalTitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (value.snoozeCount > 0) Text(BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount))
+            if (value.snoozeCount > 0) Text(BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount, options.reminderStyle))
             Button(onClick = onStart, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Start task") }
             when (value.phase) {
                 "RUNNING" -> OutlinedButton(onClick = { vm.action { vm.app.breaks.pause(value.id, value.revision) } }, modifier = Modifier.fillMaxWidth()) { Text("Pause break") }
                 "PAUSED" -> OutlinedButton(onClick = { vm.action { vm.app.breaks.resume(value.id, value.revision) } }, modifier = Modifier.fillMaxWidth()) { Text("Resume break") }
-                "DUE" -> OutlinedButton(onClick = { vm.action { if (vm.app.breaks.snooze(value.id, value.revision))
-                    vm.app.breaks.dao.breakSession(value.id)?.let { BreakNotifications.snoozed(vm.app, it) } } }, modifier = Modifier.fillMaxWidth()) { Text("Snooze 5 min") }
+                "DUE" -> if (AlertPolicy.canSnooze(value.snoozeCount,options.snoozeLimit)) OutlinedButton(onClick = { vm.action { if (vm.app.breaks.snooze(value.id, value.revision))
+                    vm.app.breaks.dao.breakSession(value.id)?.let { BreakNotifications.snoozed(vm.app, it) } } }, modifier = Modifier.fillMaxWidth()) { Text("Snooze ${options.snoozeMinutes} min") }
             }
             TextButton(onClick = { vm.action { vm.app.breaks.stop(value.id, value.revision) } }) { Text("Stop break") }
         }

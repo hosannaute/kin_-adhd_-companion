@@ -3,11 +3,11 @@
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
-**Status: native Android 0.7 development build with a persistent scrolling-break countdown, a refreshed lavender interface, a break → reminder → focus cycle and native focus Picture-in-Picture.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
+**Status: native Android 0.8 development build with a persistent scrolling-break countdown, a refreshed lavender interface, a break → reminder → focus cycle and native focus Picture-in-Picture.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
 
 ## Download
 
-[Download KIN 0.7 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
+[Download the latest verified debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
 
 This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). The checked-in APK is built from this branch's app source; subsequent documentation-only commits do not change its code. It uses the existing signing certificate and explicit database migrations from schema 1/2 to 3 for in-place updates. Known missing features are listed below and in the roadmap.
 
@@ -29,9 +29,12 @@ This is an early debug build, not a production release. Android may ask you to a
 - Offline guided chat with contextual templates, emotional shortcuts, conversation history, and honest disclosure that it is not AI or mental healthcare. “I can't start” offers small steps that can be edited and saved to a task, rest, and short focus sessions.
 - WorkManager task reminders and focus-completion work; optional notification permission; quiet hours; a global task-reminder pause; dark mode and companion naming in DataStore. Android may delay background notifications.
 - Optional draggable WindowManager companion with the same original creature renderer, expansion/collapse, quiet-hour and lock-screen hiding, saved position, and persistent Pause/Stop controls. Optional selected-app foreground-time reminders with explicit Usage access, configurable thresholds and snoozing; all processing is local. See [how to enable it and what it measures](docs/FLOATING_COMPANION.md).
-- No registration, ads, analytics, cloud provider, API keys, or network permission. Local Android backup is disabled. Uninstalling deletes data; there is no export yet.
+- Selectable sound + vibration, vibration-only or silent timer alerts, distinct original break/focus chimes, quiet-hour/DND handling, real test alerts, gentle/firm reminder wording and optional snooze lengths/limits.
+- Versioned backup/restore through Android's document picker, with validation, replacement confirmation, preserved rewards/history, stopped imported clocks and refreshed future reminders. Save a backup before uninstalling.
+- A one-minute timer-check guide for actual phones and a [complete offline handover](docs/OFFLINE_RELEASE.md).
+- No registration, ads, analytics, cloud provider, API keys, or network permission. Android automatic backup is disabled. File backups are saved only where you choose.
 
-Reminder escalation/firm mode, additional world progression, and several other requirements remain unimplemented. Overlay and usage-monitoring behavior on newer Android/OEM phones still requires acceptance testing. Compilation and unit checks do not establish all Android lifecycle and device behavior.
+Automatic reminder escalation, additional world progression, and several other requirements remain unimplemented. Overlay and usage-monitoring behavior on newer Android/OEM phones still requires acceptance testing. Compilation and unit checks do not establish all Android lifecycle and device behavior.
 
 ## Technology and architecture
 
@@ -99,15 +102,16 @@ After a workflow succeeds, open the run under **Actions → Android debug APK** 
 - `SYSTEM_ALERT_WINDOW`: optional Settings permission for the user-started floating companion. Denial leaves core features usable.
 - `PACKAGE_USAGE_STATS`: optional Settings/AppOps access for app-time reminders, separately enabled after selecting apps. It does not identify scrolling or content types.
 - `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SPECIAL_USE`: user-started companion/timer services and ongoing controls. The timer service supports Android process recovery; reopening KIN also recovers an active saved timer. Force-stop and vendor restrictions can still suspend background execution.
+- `VIBRATE`: normal Android permission for optional timer-alert vibration.
 - No accessibility service, exact alarm, microphone, Internet, storage, or location permission is requested by KIN.
 
 WorkManager contributes normal `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, and `FOREGROUND_SERVICE` permissions plus its internal non-exported receiver permission in the merged manifest. The optional floating mode starts its declared foreground service. KIN does not acquire its own wake lock.
 
-Reminders use deferrable WorkManager jobs, not exact alarms. Quiet-hour task reminders are skipped rather than deferred. This build provides one scheduled notification per occurrence with Start, Snooze 10 min and Options actions. Options includes breakdown, rescheduling and skip. Firm mode and reminder escalation are not implemented.
+Reminders use deferrable WorkManager jobs, not exact alarms. Quiet-hour task reminders are skipped rather than deferred. This build provides one scheduled notification per occurrence with Start, Snooze 10 min and Options actions. Options includes breakdown, rescheduling and skip. Break reminders offer gentle/firm wording and optional snooze limits. Automatic reminder escalation is not implemented.
 
 ## Screenshots
 
-Actual 0.7 APK captures from a disposable Android 8 emulator with synthetic sample data and the starting Egg companion. These are runtime screens, not the supplied concept reference.
+Earlier 0.7 APK captures from a disposable Android 8 emulator with synthetic sample data and the starting Egg companion. These are runtime screens, not the supplied concept reference.
 
 | Home | Active break | Floating countdown |
 | --- | --- | --- |

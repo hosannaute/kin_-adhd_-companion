@@ -10,11 +10,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MinutesPicker(value: String, onChange: (String) -> Unit, presets: List<Int>, label: String, maxMinutes: Int = 180) {
     var custom by rememberSaveable { mutableStateOf(value.toIntOrNull() !in presets) }
     Text(label, style = MaterialTheme.typography.titleSmall)
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         presets.forEach { amount -> FilterChip(!custom && value == amount.toString(), { custom = false; onChange(amount.toString()) }, label = { Text("$amount m") }) }
         FilterChip(custom, { custom = true }, label = { Text("Custom") })
     }

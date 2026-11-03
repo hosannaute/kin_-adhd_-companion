@@ -28,4 +28,9 @@ class TimerPreferences(context: Context) {
     suspend fun focusChoice(minutes: Int, taskId: Long?) { store.edit {
         it[focus] = minutes.coerceIn(1,180); if (taskId != null) it[task] = taskId
     } }
+    suspend fun restore(value: TimerOptions) { store.edit {
+        it[right] = value.dockRight; it[fraction] = value.verticalFraction
+        it[rest] = value.breakMinutes; it[focus] = value.focusMinutes
+        it[task] = value.taskId; it[goal] = value.goalId
+    } }
 }

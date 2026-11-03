@@ -6,6 +6,7 @@ import android.provider.Settings
 import androidx.room.withTransaction
 import app.kin.domain.*
 import app.kin.services.Scheduler
+import app.kin.services.TimerAlerts
 import java.time.*
 
 class KinRepository(private val context: Context, private val db: KinDatabase, private val scheduler: Scheduler,
@@ -164,20 +165,24 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
     }
 
     /** Exactly-once completion under a DB transaction. Reboot interrupts, rather than rewards, an active session. */
-    suspend fun refreshFocus(id: Long): Boolean = db.withTransaction {
-        val session = dao.session(id) ?: return@withTransaction false
-        if (session.ended || !session.running) return@withTransaction false
-        if (session.bootCount != boot()) {
-            dao.updateSession(session.copy(ended = true, running = false))
-            finishBreakCycle(id, completed = false)
-            return@withTransaction false
+    suspend fun refreshFocus(id: Long): Boolean {
+        val completed = db.withTransaction {
+            val session = dao.session(id) ?: return@withTransaction null
+            if (session.ended || !session.running) return@withTransaction null
+            if (session.bootCount != boot()) {
+                dao.updateSession(session.copy(ended = true, running = false))
+                finishBreakCycle(id, completed = false)
+                return@withTransaction null
+            }
+            if (remaining(session) > 0) return@withTransaction null
+            dao.updateSession(session.copy(ended = true, completed = true, running = false, remainingMillis = 0))
+            finishBreakCycle(id, completed = true)
+            award(Rewards.FOCUS)
+            dao.insertAchievement(Achievement("focus:$id", "Completed a ${session.durationMillis / 60_000} minute focus session"))
+            session.copy(ended = true, completed = true, running = false, remainingMillis = 0)
         }
-        if (remaining(session) > 0) return@withTransaction false
-        dao.updateSession(session.copy(ended = true, completed = true, running = false, remainingMillis = 0))
-        finishBreakCycle(id, completed = true)
-        award(Rewards.FOCUS)
-        dao.insertAchievement(Achievement("focus:$id", "Completed a ${session.durationMillis / 60_000} minute focus session"))
-        true
+        if (completed != null) TimerAlerts.focus(context, completed)
+        return completed != null
     }
     private suspend fun finishBreakCycle(focusId: Long, completed: Boolean) {
         dao.breakForFocus(focusId)?.let {

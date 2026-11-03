@@ -1,5 +1,10 @@
 # Validation record
 
+## 0.8 offline release and timer alerts
+
+- Candidate includes versioned backup/restore, timer sound/vibration choices, distinct original chimes, shared natural-focus completion alerts, gentle/firm wording, optional snooze limits, wrapping presets and a phone-check guide.
+- Local `testDebugUnitTest`: **56 passed, 0 failed, 0 skipped**. App/test APK assembly passes; `lintDebug` has **0 findings**. **76 device scenarios per API are defined**; API 26/35 execution and APK publication are pending. Physical-phone sound, OEM/background and broad accessibility acceptance remain manual checks. See [OFFLINE_RELEASE.md](OFFLINE_RELEASE.md).
+
 ## 0.7 persistent break and clean design
 
 - Tested app/test revision: [`be5278c`](https://github.com/hosannaute/kin_-adhd_-companion/commit/be5278c183788add6d19a1fa57809f517ae67288). [CI run 41694904852](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41694904852) completed successfully: build, API 26 and API 35 jobs all passed. **48 unit tests and 57 device scenarios per API passed, with 0 failures and 0 skips**, as recorded in check annotations. The publication follow-up changes only documentation, screenshots and APK/checksum files; tested app/test/build source is unchanged.
