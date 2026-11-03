@@ -1,4 +1,4 @@
-# Movable timer and quick choices (0.6)
+# Movable timer and quick choices (0.7)
 
 ## Timer icon
 
@@ -20,6 +20,6 @@ Changing apps does not end or recreate a timer. Process recovery keeps saved ela
 
 ## Validation
 
-Six unit cases cover docking, bounds, normalization and rotation. New device scenarios exercise actual dragging, edge docking, outside-touch collapse, saved position/service recovery, rotation, repeated app switching, the same icon during focus, focus notification controls with overlay denied, preset remembering and explicit Custom input. Existing break, PiP, planner, permission, migration, reward and real app-usage regressions remain enabled. Completed outcomes are recorded in [VALIDATION.md](VALIDATION.md).
+Six unit cases cover docking, bounds, normalization and rotation. Device scenarios exercise actual dragging, edge docking, outside-touch collapse, saved position/service recovery, rotation, repeated app switching, the same icon during focus, focus notification controls with overlay denied, preset remembering and explicit Custom input. Existing break, PiP, planner, permission, migration, reward and real app-usage regressions remain enabled. Completed outcomes are recorded in [VALIDATION.md](VALIDATION.md).
 
-Physical/OEM devices, large-font/TalkBack acceptance and long-use battery behavior require manual checks. App permissions remain under user control; everything stays offline.
+A 200% font-size case verifies compact-control sizing and expansion/collapse. Physical/OEM devices, broad large-font/TalkBack acceptance and long-use battery behavior still require manual checks. App permissions remain under user control; everything stays offline.
