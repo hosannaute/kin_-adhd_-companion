@@ -49,12 +49,12 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
                     Text("Focus complete · +15 XP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text("Progress saved. Ready for a little break?")
                 } else Text("Take a scrolling break", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Set a break length and a task to return to. Tap the movable icon for your countdown. A large companion reminder appears at zero.")
+                Text("Choose a task to return to. Your timer stays on screen until the break ends.")
                 Button(onClick = { showBreakSetup = true }, modifier = Modifier.fillMaxWidth()) { Text(if (latest?.completed == true) "Plan next break" else "Plan a scrolling break") }
             } }
             item { SoftCard {
                 Text("Focus now", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Choose a task and how long you want to work. Start the focus timer when you're ready.")
+                Text("One task. One timer. Choose your pace and begin.")
                 OutlinedButton(onClick = { vm.focusSetupRequested.value = true }, modifier = Modifier.fillMaxWidth()) { Text("Choose focus duration") }
             } }
         }
@@ -72,12 +72,11 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
     LaunchedEffect(tasks) { if (!taskPicked && taskId == null) taskId = tasks.firstOrNull { it.id == options.taskId && !it.resolved }?.id }
 
     Box(Modifier.fillMaxSize()) {
-        WorldLandscape(night = true, modifier = Modifier.fillMaxSize(), unlocked = 2)
-        Box(Modifier.fillMaxSize().background(Color(0xFF101D32).copy(alpha=.55f)))
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
         LazyColumn(Modifier.fillMaxSize().testTag("focus_screen"), contentPadding = PaddingValues(20.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            item { Text("A little focus", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
-            item { Text(session?.taskTitle ?: "You don't have to do everything. Just be here.", color = Color(0xFFDEE7F2)) }
+            item { Text("A little focus", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.headlineMedium) }
+            item { Text(session?.taskTitle ?: "You don't have to do everything. Just be here.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (session == null) {
                 item { SoftCard {
                     Text("Choose your focus duration", fontWeight = FontWeight.Bold)
@@ -88,16 +87,17 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
                 } }
             }
             if (session == null) item { TextButton(onClick = { vm.focusSetupRequested.value = false }) { Text("Back to break or focus") } }
-            item { CompanionArt(Evolution.at(companion?.xp ?: 0), pref.reducedMotion, Modifier.size(140.dp), CreatureMood.SLEEPING) }
+            item { CompanionArt(Evolution.at(companion?.xp ?: 0), pref.reducedMotion, Modifier.size(100.dp), CreatureMood.SLEEPING) }
             item {
                 val millis = if (session != null) timer.remainingMillis else (minutes.toIntOrNull() ?: 0) * 60_000L
                 val seconds = (millis + 999) / 1000
                 Box(Modifier.size(230.dp), contentAlignment = Alignment.Center) {
+                    Surface(Modifier.fillMaxSize().padding(10.dp), shape = androidx.compose.foundation.shape.CircleShape, color = MaterialTheme.colorScheme.surface) { }
                     CircularProgressIndicator(progress = { if (session != null) (millis.toFloat() / session!!.durationMillis).coerceIn(0f,1f) else 1f },
-                        modifier = Modifier.fillMaxSize(), color = Color(0xFFBEB4EE), trackColor = Color(0xFF536178), strokeWidth = 5.dp)
+                        modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.primaryContainer, strokeWidth = 7.dp)
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("%02d:%02d".format(seconds / 60, seconds % 60), color = Color.White, fontSize = 48.sp)
-                        Text(if (session?.running == false) "Resting for a moment" else "One moment at a time", color = Color(0xFFD4DFE9))
+                        Text("%02d:%02d".format(seconds / 60, seconds % 60), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = "tnum"))
+                        Text(if (session?.running == false) "Resting for a moment" else "One moment at a time", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -133,9 +133,9 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
                     PipAvailability.UNSUPPORTED -> Text("This device doesn't support Picture-in-Picture. Your timer still works here.")
                 }
             } }
-            item { Text("$count completed sessions · No pressure to keep a streak", color = Color(0xFFDFE4EE), style = MaterialTheme.typography.bodySmall) }
+            item { Text("$count completed sessions · No pressure to keep a streak", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
             item { Text("Finishing early saves the interruption without XP. Completion notifications may be delayed by Android battery controls.",
-                color = Color(0xFFDFE4EE), style = MaterialTheme.typography.bodySmall) }
+                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
         }
     }
     if (showBreakSetup) BreakSetupDialog(vm, latest?.taskId, { showBreakSetup = false })

@@ -33,7 +33,7 @@ class NavigationTest {
             compose.onNodeWithContentDescription("Settings").performClick()
             compose.onNodeWithText("Make room for you").assertIsDisplayed()
             compose.onNodeWithText("Home", useUnmergedTree = true).performClick()
-            compose.onNodeWithText("A little focus time", substring = true).performScrollTo().performClick()
+            compose.onNodeWithText("Focus", useUnmergedTree = true).performClick()
             compose.onNodeWithText("A little focus").assertIsDisplayed()
         }
     }

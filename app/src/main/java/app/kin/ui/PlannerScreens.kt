@@ -13,6 +13,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,61 +44,92 @@ fun HomeScreen(vm: KinViewModel, pref: UserPreferences, openTasks: () -> Unit, o
     val cycle by vm.activeBreak.collectAsStateWithLifecycle()
     val focus by vm.focus.collectAsStateWithLifecycle()
     val today = tasks.filter { !it.resolved && it.today() }.take(3)
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item {
-            Box(Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))) {
-                WorldLandscape(modifier = Modifier.fillMaxSize(), unlocked = stage.ordinal)
-                Column(Modifier.fillMaxWidth().padding(22.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Small steps. A little magic.", style = MaterialTheme.typography.labelLarge, color = Ink)
-                            Text("Hello, dreamer", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Ink)
-                            Text("${pref.name} · ${stage.label} · ${companion?.xp ?: 0} XP", color = Ink)
-                        }
-                        FilledTonalIconButton(onClick = openSettings) { Icon(Icons.Outlined.Settings, "Settings") }
-                    }
-                    Spacer(Modifier.height(20.dp))
-                    Surface(Modifier.align(Alignment.End).widthIn(max = 170.dp), shape = RoundedCornerShape(20.dp), color = Cream.copy(alpha=.95f)) {
-                        Text("One small step.\nI'm here with you.", Modifier.padding(16.dp), color = Ink)
-                    }
-                }
-                CompanionArt(stage, pref.reducedMotion, Modifier.align(Alignment.BottomStart).padding(start = 20.dp).size(150.dp), CreatureMood.WAVING)
+    LazyColumn(Modifier.fillMaxSize().testTag("home_screen"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMM d")), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Hello, dreamer", style = MaterialTheme.typography.headlineMedium)
             }
-        }
-        item { Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            SoftCard {
-                Text("Your next small step", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                if (cycle != null || focus != null) {
-                    Text(if (cycle?.phase in listOf("RUNNING", "PAUSED", "DUE")) "Your break timer is active. Open it to see the countdown or return to your task." else "Your focus session is active.")
-                    Button(onClick = openFocus, modifier = Modifier.fillMaxWidth()) { Text("Open active timer") }
-                } else {
-                    Text("Rest first, or start one task. You choose.")
-                    Button(onClick = { breakSetup = true }, modifier = Modifier.fillMaxWidth()) { Text("Take a scrolling break") }
-                    Text("Choose when to return. Your companion appears over other apps at the end.", style = MaterialTheme.typography.bodySmall)
-                    OutlinedButton(onClick = { vm.focusSetupRequested.value = true; openFocus() }, modifier = Modifier.fillMaxWidth()) { Text("Focus now") }
-                }
-                Text(if (windowAllowed) "Companion window allowed" else "Floating reminders are off until you allow the companion window.",
-                    style = MaterialTheme.typography.bodySmall, color = if (windowAllowed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-                TextButton(onClick = { permissionSetup = true }) { Text("Check companion permissions") }
-            }
-            SoftCard {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Today's adventures", fontWeight = FontWeight.Bold)
-                    Text("${today.size} to explore", style = MaterialTheme.typography.labelMedium)
-                }
-                if (today.isEmpty()) Text("A clear little clearing. Choose one small thing you'd like to do today.")
-                today.forEach { task -> TaskRow(task, { vm.action { vm.repository.completeTask(task.id) } },
-                    { editing = task }, { if (vm.focus.value == null) vm.action { vm.repository.startFocus(task.minutes, task) }; openFocus() }) }
-                TextButton(onClick = openTasks) { Icon(Icons.Outlined.Add, null); Text(" Add an adventure") }
-            }
-            Button(onClick = { help = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("I can't start") }
-            OutlinedButton(onClick = openFocus, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Timer, null); Text(" A little focus time") }
-            Text("Progress is finding your way back.", Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.bodySmall)
+            FilledTonalIconButton(onClick = openSettings) { Icon(Icons.Outlined.Settings, "Settings") }
         } }
+        item { Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+            Row(Modifier.fillMaxWidth().padding(start = 22.dp, top = 18.dp, bottom = 18.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("One small step.", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("A little progress is enough for today.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("${pref.name} · ${stage.label} · ${companion?.xp ?: 0} XP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+                CompanionArt(stage, pref.reducedMotion, Modifier.size(104.dp), CreatureMood.WAVING)
+            }
+        } }
+        item { SoftCard {
+            Text("Your next small step", style = MaterialTheme.typography.titleMedium)
+            if (cycle != null || focus != null) {
+                HomeTimerSummary(vm, cycle, focus)
+                Button(onClick = openFocus, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Open active timer") }
+            } else {
+                Text("Rest first, or begin one task.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Button(onClick = { breakSetup = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                    Icon(Icons.Outlined.Coffee, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Take a scrolling break")
+                }
+                OutlinedButton(onClick = { vm.focusSetupRequested.value = true; openFocus() }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                    Icon(Icons.Outlined.PlayArrow, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Focus now")
+                }
+            }
+            if (!windowAllowed) Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(12.dp)) {
+                Text("Allow the companion window to keep your timer on screen.", Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+            }
+            TextButton(onClick = { permissionSetup = true }) {
+                Icon(if (windowAllowed) Icons.Outlined.CheckCircle else Icons.Outlined.Info, null, Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp)); Text("Check companion permissions")
+            }
+        } }
+        item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Today's adventures", style = MaterialTheme.typography.titleLarge)
+            TextButton(onClick = openTasks) { Text("See all") }
+        } }
+        item { SoftCard {
+            if (today.isEmpty()) {
+                Text("Make room for one small thing.", style = MaterialTheme.typography.titleMedium)
+                Text("Add a task when you're ready.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            today.forEachIndexed { index, task ->
+                if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                TaskRow(task, { vm.action { vm.repository.completeTask(task.id) } }, { editing = task },
+                    { if (vm.focus.value == null) vm.action { vm.repository.startFocus(task.minutes, task) }; openFocus() })
+            }
+            TextButton(onClick = openTasks) { Icon(Icons.Outlined.Add, null); Text(" Add an adventure") }
+        } }
+        item { FilledTonalButton(onClick = { help = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+            Icon(Icons.Outlined.AutoAwesome, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("I can't start")
+        } }
+        item { TextButton(onClick = openFocus, modifier = Modifier.fillMaxWidth()) { Text("A little focus time") } }
     }
     editing?.let { task -> TaskEditor(task, goals, { editing = null }, { vm.action { vm.repository.saveTask(it); editing = null } }) }
     if (help) CantStartDialog(vm, { help = false }, openFocus)
     if (breakSetup) BreakSetupDialog(vm, onDismiss = { breakSetup = false }, onStarted = { breakSetup = false; openFocus() })
+}
+
+@Composable
+private fun HomeTimerSummary(vm: KinViewModel, rest: BreakSession?, focus: FocusSession?) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val pending = rest?.takeIf { it.phase in listOf("RUNNING", "PAUSED", "DUE") }
+    var left by remember { mutableLongStateOf(0) }
+    LaunchedEffect(pending,focus,lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) {
+                left = if (pending != null) vm.app.breaks.remaining(pending) else focus?.let(vm.repository::remaining) ?: 0
+                delay(500)
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(if (pending != null) "Scrolling break" else "Focus session", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text(pending?.taskTitle ?: focus?.taskTitle.orEmpty(), style = MaterialTheme.typography.bodyMedium)
+        }
+        Text(app.kin.services.BreakNotifications.format(left), style = MaterialTheme.typography.headlineSmall)
+    }
 }
 
 @Composable
@@ -142,7 +179,7 @@ fun TasksScreen(vm: KinViewModel, openFocus: () -> Unit, requestedTaskId: Long? 
                 SegmentedButton(tab == i, { tab = i }, shape = SegmentedButtonDefaults.itemShape(i, 3)) { Text(label) }
             }
         } }
-        item { OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Find a task or category") },
+        if (tasks.size > 3 || query.isNotEmpty()) item { OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Find a task or category") },
             leadingIcon = { Icon(Icons.Outlined.Search, null) }, singleLine = true) }
         if (shown.isEmpty()) item { SoftCard { Text(if (tab == 2) "Your completed adventures will live here." else "Room for something small.", fontWeight = FontWeight.Medium)
             Text("Add an adventure when you're ready.") } }

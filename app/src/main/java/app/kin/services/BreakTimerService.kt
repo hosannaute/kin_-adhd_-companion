@@ -96,7 +96,7 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             if (nextMode != modeKey) { expanded = false; modeKey = nextMode; ackUntil = 0; layoutKey = "" }
             val old = previous
             if (rest != null && old?.id == rest.id && rest.snoozeCount > old.snoozeCount && rest.phase == "RUNNING") {
-                ackUntil = SystemClock.elapsedRealtime() + 4_000; expanded = true
+                ackUntil = SystemClock.elapsedRealtime() + 4_000; expanded = !KinVisibility.resumed.value
             }
             previous = rest; current = rest; focus = work
             if (rest?.phase == "DUE") {
@@ -115,8 +115,12 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 notificationKey = key
             }
             val locked = getSystemService(KeyguardManager::class.java).isKeyguardLocked || !getSystemService(PowerManager::class.java).isInteractive
+            val activeBreak = rest?.phase in listOf("RUNNING", "PAUSED")
+            // A running break stays visible in KIN as well as in other apps.
+            // At expiry KIN owns its due dialog; outside KIN this service owns the large prompt.
+            val presentationAllowed = activeBreak || (!KinVisibility.resumed.value && !PipVisibility.visible.value)
             val eligible = pref != null && positionLoaded && Settings.canDrawOverlays(this) && !locked &&
-                !OverlayPreviewService.visible.value && !PipVisibility.visible.value && !KinVisibility.resumed.value
+                !OverlayPreviewService.visible.value && presentationAllowed
             if (eligible) show() else hide()
             status.value = BreakTimerStatus(true, attached, when {
                 attached && acknowledgment -> "Snoozed · remember your goal"
@@ -125,7 +129,7 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 !Settings.canDrawOverlays(this) -> "Window permission is off · enable it to show the timer icon"
                 windowError != null -> windowError!!
                 locked -> "Timer saved · window returns after unlock"
-                else -> "Timer is active · icon appears outside KIN"
+                else -> "Timer is active"
             }, expanded)
             if (rest?.phase == "DUE") BreakNotifications.due(app, rest)
         } catch (e: CancellationException) { throw e
@@ -137,12 +141,18 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     @Suppress("DEPRECATION")
     private fun screen() = DisplayMetrics().also { windows.defaultDisplay.getRealMetrics(it) }
     private fun collapse() { expanded = false; acknowledgment = false; ackUntil = 0; layoutKey = ""; scope.launch { tick() } }
+    private fun compactSize(metrics: DisplayMetrics): Pair<Int,Int> {
+        val scale = resources.configuration.fontScale.coerceAtLeast(1f)
+        val width = ((112 + 56 * (scale - 1)) * metrics.density).toInt()
+            .coerceAtMost((metrics.widthPixels - 16 * metrics.density).toInt()).coerceAtLeast(1)
+        return width to ((64 + 32 * (scale - 1)) * metrics.density).toInt()
+    }
     private fun show() {
         if (SystemClock.elapsedRealtime() < retryAfter) return
         val settings = pref ?: return
         val metrics = screen()
-        val icon = (68 * metrics.density).toInt()
-        val width = if (expanded) minOf(metrics.widthPixels - (16 * metrics.density).toInt(), (320 * metrics.density).toInt()) else icon
+        val (compactWidth, icon) = compactSize(metrics)
+        val width = if (expanded) minOf(metrics.widthPixels - (16 * metrics.density).toInt(), (320 * metrics.density).toInt()) else compactWidth
         val margin = (32 * metrics.density).toInt()
         val maxHeight = (metrics.heightPixels / metrics.density - 72).coerceAtLeast(180f)
         if (root == null) root = object : FrameLayout(this) {
@@ -161,7 +171,8 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                     val rest = current; val work = focus; val preference = pref ?: settings
                     if (!expanded) TimerBubble(work != null, rest?.phase == "PAUSED" || work?.running == false,
                         rest?.phase == "DUE", remaining, stage,
-                        onTap = { expanded = true; layoutKey = ""; scope.launch { tick() } }, onDrag = ::drag, onDrop = ::dock)
+                        onTap = { expanded = true; layoutKey = ""; scope.launch { tick() } }, onDrag = ::drag, onDrop = ::dock,
+                        widthDp = compactWidth / metrics.density, heightDp = icon / metrics.density)
                     else if (rest != null && (rest.phase == "DUE" || acknowledgment)) {
                         androidx.compose.foundation.layout.Column {
                             androidx.compose.material3.TextButton(onClick = { collapse() }) { androidx.compose.material3.Text("Collapse") }
@@ -181,7 +192,9 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 } }
             })
         }
-        if (attached && root?.isAttachedToWindow != true) { attached = false; layoutKey = ""; BreakPromptVisibility.release("break-service") }
+        if (attached && root?.isAttachedToWindow != true) {
+            try { root?.let { windows.removeViewImmediate(it) } } catch (_: RuntimeException) { }
+            attached = false; layoutKey = ""; BreakPromptVisibility.release("break-service") }
         val height = if (expanded) WindowManager.LayoutParams.WRAP_CONTENT else icon
         val key = "$expanded:${metrics.widthPixels}:${metrics.heightPixels}:${options.dockRight}:${options.verticalFraction}"
         @Suppress("RtlHardcoded")
@@ -221,13 +234,14 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     }
     private fun dock() {
         val layout = params ?: return
-        val metrics = screen(); val size = (68 * metrics.density).toInt()
-        val right = BubblePosition.nearestRight(layout.x, metrics.widthPixels, size)
-        val fraction = BubblePosition.fraction(layout.y, metrics.heightPixels, size, (32 * metrics.density).toInt())
+        val metrics = screen(); val height = compactSize(metrics).second
+        val right = BubblePosition.nearestRight(layout.x, metrics.widthPixels, layout.width)
+        val fraction = BubblePosition.fraction(layout.y, metrics.heightPixels, height, (32 * metrics.density).toInt())
         options = options.copy(dockRight = right, verticalFraction = fraction); dragging = false; layoutKey = ""
         scope.launch { app.timerPreferences.position(right, fraction); tick() }
     }
     private fun openBreak(value: BreakSession) {
+        expanded = false; acknowledgment = false; ackUntil = 0
         try { startActivity(BreakNotifications.intent(this, value, true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); hide() }
         catch (_: RuntimeException) { windowError = "Open KIN or its notification to choose focus time." }
     }

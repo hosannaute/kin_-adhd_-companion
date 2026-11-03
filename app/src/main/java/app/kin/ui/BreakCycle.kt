@@ -16,6 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.*
@@ -83,7 +87,7 @@ fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: (
             ChoiceList("Personal goal", goals.firstOrNull { it.id == goalId }?.title ?: "Use just my task",
                 listOf("0" to "Use just my task") + goals.filter { !it.achieved }.map { it.id.toString() to it.title }) { goalPicked = true; goalId = it.toLong().takeIf { id -> id > 0 } }
             BreakPermissions()
-            Text("A movable icon stays at the screen edge. Tap it to see the countdown. At zero, a large reminder appears, including during quiet hours. Notification sounds stay quiet.")
+            Text("A small timer stays at the screen edge, even inside KIN. Tap it for controls. At zero, a large reminder appears, including during quiet hours. Notification sounds stay quiet.")
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { TextButton(enabled = !saving && taskId != null && minutes.toIntOrNull() in 1..180, onClick = {
@@ -106,6 +110,7 @@ fun ActiveBreakScreen(vm: KinViewModel, value: BreakSession, onStart: () -> Unit
     var left by remember(value.id) { mutableLongStateOf(vm.app.breaks.remaining(value)) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val status by BreakTimerService.status.collectAsStateWithLifecycle()
+    val companion by vm.companion.collectAsStateWithLifecycle()
     LaunchedEffect(value, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (isActive) {
@@ -115,25 +120,40 @@ fun ActiveBreakScreen(vm: KinViewModel, value: BreakSession, onStart: () -> Unit
             }
         }
     }
+    val windowAllowed by rememberWindowPermission()
     Column(Modifier.fillMaxSize().testTag("break_screen").verticalScroll(rememberScrollState()).padding(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        PageTitle("Your scrolling break", "1 · Break → 2 · Return to task → 3 · Focus")
-        Text(value.taskTitle, style = MaterialTheme.typography.titleLarge)
-        Text(if (value.phase == "DUE") "Time to return" else BreakNotifications.format(left), style = MaterialTheme.typography.displayMedium)
-        Text(when(value.phase) { "PAUSED" -> "Break paused"; "DUE" -> "Choose your focus time when you're ready."; else -> "Use another app. Your companion will remind you when time is up." })
-        if (value.snoozeCount > 0) Text(BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount))
-        Text(if (!status.running) "Background timer isn't running. Reopen KIN or tap Restart timer below." else status.message, style = MaterialTheme.typography.bodySmall)
-        if (!status.running) OutlinedButton(onClick = { BreakTimerService.start(vm.app) }) { Text("Restart timer") }
-        Button(onClick = onStart) { Text("Start task") }
-        when (value.phase) {
-            "RUNNING" -> OutlinedButton(onClick = { vm.action { vm.app.breaks.pause(value.id, value.revision) } }) { Text("Pause break") }
-            "PAUSED" -> OutlinedButton(onClick = { vm.action { vm.app.breaks.resume(value.id, value.revision) } }) { Text("Resume break") }
-            "DUE" -> OutlinedButton(onClick = { vm.action { if (vm.app.breaks.snooze(value.id, value.revision))
-                vm.app.breaks.dao.breakSession(value.id)?.let { BreakNotifications.snoozed(vm.app, it) } } }) { Text("Snooze 5 min") }
+        verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        PageTitle("Your scrolling break", "Rest now. Return with one small step.")
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brush.verticalGradient(listOf(
+            MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surfaceVariant))).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            CompanionArt(Evolution.at(companion?.xp ?: 0), true, Modifier.size(80.dp), CreatureMood.WAVING)
+            Text(if (value.phase == "DUE") "Time to return" else BreakNotifications.format(left), style = MaterialTheme.typography.displayMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text(when(value.phase) { "PAUSED" -> "Break paused"; "DUE" -> "Choose your focus time when you're ready."; else -> "Your timer stays on screen while you scroll." },
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
-        TextButton(onClick = { vm.action { vm.app.breaks.stop(value.id, value.revision) } }) { Text("Stop break") }
-        BreakPermissions()
+        SoftCard {
+            Text("RETURN TO", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Text(value.taskTitle, style = MaterialTheme.typography.titleLarge)
+            if (value.goalTitle.isNotBlank()) Text(value.goalTitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (value.snoozeCount > 0) Text(BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount))
+            Button(onClick = onStart, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Start task") }
+            when (value.phase) {
+                "RUNNING" -> OutlinedButton(onClick = { vm.action { vm.app.breaks.pause(value.id, value.revision) } }, modifier = Modifier.fillMaxWidth()) { Text("Pause break") }
+                "PAUSED" -> OutlinedButton(onClick = { vm.action { vm.app.breaks.resume(value.id, value.revision) } }, modifier = Modifier.fillMaxWidth()) { Text("Resume break") }
+                "DUE" -> OutlinedButton(onClick = { vm.action { if (vm.app.breaks.snooze(value.id, value.revision))
+                    vm.app.breaks.dao.breakSession(value.id)?.let { BreakNotifications.snoozed(vm.app, it) } } }, modifier = Modifier.fillMaxWidth()) { Text("Snooze 5 min") }
+            }
+            TextButton(onClick = { vm.action { vm.app.breaks.stop(value.id, value.revision) } }) { Text("Stop break") }
+        }
+        if (!status.running) {
+            Text("The timer is saved. Restart its floating control to keep it nearby.", style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = { BreakTimerService.start(vm.app) }) { Text("Restart timer") }
+        } else Text("Drag the floating timer to either edge. Tap it for controls.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!windowAllowed) BreakPermissions()
     }
+
 }
 
 @Composable

@@ -3,23 +3,24 @@
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
-**Status: native Android 0.6 development build with a break → reminder → focus cycle, native focus Picture-in-Picture, recurring tasks, actionable subtasks and an optional floating companion.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
+**Status: native Android 0.7 development build with a persistent scrolling-break countdown, a refreshed lavender interface, a break → reminder → focus cycle and native focus Picture-in-Picture.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
 
 ## Download
 
-[Download KIN 0.6 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
+[Download KIN 0.7 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
 
 This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). The checked-in APK is built from this branch's app source; subsequent documentation-only commits do not change its code. It uses the existing signing certificate and explicit database migrations from schema 1/2 to 3 for in-place updates. Known missing features are listed below and in the roadmap.
 
 ## Implemented in source
 
-- Seven-step onboarding: meet and name a companion, optional goals and first task, reminder preferences, and an explanation of optional notification access.
+- First-open permission guidance followed by direct entry to Home. Companion naming is optional; tasks and goals can be added when needed.
 - Four main tabs: Home, Tasks, Focus and Companion. World and chat live under Companion; Settings opens from the Home gear. Interfaces are native components inspired by the supplied six-screen reference.
 - Room-backed task creation, editing, deletion, completion, date/time rescheduling, ten-minute snoozing, category search, goal associations, priority, estimated duration, and per-task reminders. Today shows three pending priority tasks by default; additional tasks remain accessible. Overdue tasks stay in Today.
 - Daily/weekly/monthly recurring tasks, persistent actionable subtasks, native date/time pickers, and task-specific Start/Snooze/Options notifications. Completing or skipping creates one next future occurrence; skipped tasks award no XP. See [offline planner behavior](docs/OFFLINE_PLANNER.md).
 - Locally stored personal goals, motivations, achievements, and companion XP. Completing the same task, focus session, or goal cannot award XP twice. Deleting a goal unlinks its tasks without deleting them. Deleting a memory does not remove earned XP.
 - First-open permission setup, notification request, battery guidance and a real sample window over the home screen. The setup also appears once when upgrading from 0.5 and remains available from Home/Settings.
-- A shared, movable companion timer icon for break and focus: drag to either edge, tap for controls, tap outside to collapse, and restore the saved position after app switching/recovery. [Behavior and limits](docs/MOVABLE_TIMER.md).
+- A shared, movable companion countdown for break and focus: the running/paused break stays visible inside KIN and over ordinary apps, with remaining time visible before tapping. Drag to either edge, tap for controls, tap outside to collapse, and restore the saved position after app switching/recovery. [Behavior and limits](docs/MOVABLE_TIMER.md).
+- A consistent lavender/white/sage palette, clearer task rows, a compact Home companion banner, a live timer summary and calmer Focus screens. [Design review and public competitor references](docs/DESIGN_REVIEW.md).
 - Preset durations, task/goal lists, quick scheduling choices, remembered recent choices and short onboarding reduce routine typing.
 - A separate planned-break timer with a chosen return task/goal, large companion prompt over other apps, goal-linked five-minute snoozing, a focus-duration picker, pause/stop controls and notification fallback. Completed focus offers another break. [Cycle behavior and Android limits](docs/BREAK_FOCUS_CYCLE.md).
 - Focus presets (5, 15, 25, 45 minutes), custom duration (1–180 minutes), pause/resume, task association, and saved completed/interrupted sessions. Monotonic time and a persisted boot count protect active countdown accuracy across process recreation and wall-clock changes. Active sessions are interrupted on reboot without awarding XP; paused sessions can be resumed. Finishing early awards no XP.
@@ -93,11 +94,11 @@ After a workflow succeeds, open the run under **Actions → Android debug APK** 
 
 ## Permissions
 
-- `POST_NOTIFICATIONS`: requested only in More when the user chooses to enable notifications. Denial leaves tasks, chat, progression, and the timer usable. System notification settings can be opened there too.
+- `POST_NOTIFICATIONS`: optional in first-open permission setup and Settings. Denial leaves tasks, chat, progression, and the timer usable; system notification settings remain available.
 - `RECEIVE_BOOT_COMPLETED`: used by the WorkManager dependency to restore scheduled work. KIN does not auto-launch an activity after reboot.
 - `SYSTEM_ALERT_WINDOW`: optional Settings permission for the user-started floating companion. Denial leaves core features usable.
 - `PACKAGE_USAGE_STATS`: optional Settings/AppOps access for app-time reminders, separately enabled after selecting apps. It does not identify scrolling or content types.
-- `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SPECIAL_USE`: the explicitly started companion service and its ongoing control notification. It does not restart automatically after reboot/process death.
+- `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SPECIAL_USE`: user-started companion/timer services and ongoing controls. The timer service supports Android process recovery; reopening KIN also recovers an active saved timer. Force-stop and vendor restrictions can still suspend background execution.
 - No accessibility service, exact alarm, microphone, Internet, storage, or location permission is requested by KIN.
 
 WorkManager contributes normal `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, and `FOREGROUND_SERVICE` permissions plus its internal non-exported receiver permission in the merged manifest. The optional floating mode starts its declared foreground service. KIN does not acquire its own wake lock.
@@ -106,7 +107,13 @@ Reminders use deferrable WorkManager jobs, not exact alarms. Quiet-hour task rem
 
 ## Screenshots
 
-No runtime screenshots are included because no app screenshots were captured during the automated device runs. After building, launch on a phone/emulator, finish onboarding, add your own sample tasks, and capture Home, Tasks, Chat, Focus, World, and More using Android Studio's device screenshot tool. Do not use the supplied reference as an app screenshot.
+Actual 0.7 APK captures from a disposable Android 8 emulator with synthetic sample data and the starting Egg companion. These are runtime screens, not the supplied concept reference.
+
+| Home | Active break | Floating countdown |
+| --- | --- | --- |
+| <img src="docs/screenshots/v07/home.png" alt="KIN Home with clear break and focus actions" width="220"> | <img src="docs/screenshots/v07/break.png" alt="Active scrolling break inside KIN" width="220"> | <img src="docs/screenshots/v07/outside.png" alt="Break countdown above the Android home screen" width="220"> |
+
+Cross-app interaction, expiry and larger-font behavior are covered separately in the [validation record](docs/VALIDATION.md).
 
 ## Remaining work
 

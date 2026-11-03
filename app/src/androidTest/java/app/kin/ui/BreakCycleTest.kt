@@ -33,6 +33,7 @@ class BreakCycleTest {
     private var scenario: ActivityScenario<MainActivity>? = null
     private var previousFlags = 0
     private var hadOverlay = false
+    private var previousFontScale = "1.0"
     private lateinit var task: Task
     private lateinit var goal: PersonalGoal
     private val notifications get() = app.getSystemService(NotificationManager::class.java)
@@ -104,6 +105,7 @@ class BreakCycleTest {
         app.database.dao().updateBreak(value.copy(remainingMillis = 1_500, startedElapsed = SystemClock.elapsedRealtime(), dueAtWall = System.currentTimeMillis() + 1_500))
     }
     @Before fun setup() = runBlocking<Unit> {
+        previousFontScale = shell("settings get system font_scale").toFloatOrNull()?.toString() ?: "1.0"
         val info = automation.serviceInfo; previousFlags = info.flags
         info.flags = info.flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         automation.serviceInfo = info
@@ -128,6 +130,7 @@ class BreakCycleTest {
         task = app.database.dao().allTasks().single()
     }
     @After fun cleanup() = runBlocking<Unit> {
+        shell("settings put system font_scale $previousFontScale")
         automation.setRotation(android.app.UiAutomation.ROTATION_UNFREEZE)
         app.stopService(Intent(app, OverlayPreviewService::class.java))
         app.preferences.markPermissionSetupReviewed()
@@ -158,6 +161,45 @@ class BreakCycleTest {
         appOp("POST_NOTIFICATION", "allow")
         if (android.os.Build.VERSION.SDK_INT >= 33) automation.grantRuntimePermission(app.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
         val info = automation.serviceInfo; info.flags = previousFlags; automation.serviceInfo = info
+    }
+
+    @Test(timeout = 120_000) fun breakStaysVisibleAcrossKinScreensAndBecomesOneReminderAtExpiry() = runBlocking<Unit> {
+        appOp("SYSTEM_ALERT_WINDOW", "allow")
+        val value = begin()
+        fun iconVisible() = nodes().count { it.contentDescription?.toString() == "Open break timer" } == 1
+        await { iconVisible() }
+        val before = app.breaks.remaining(app.database.dao().breakSession(value.id)!!)
+        for (tab in listOf("Home","Tasks","Companion","Focus")) {
+            compose.onNodeWithText(tab,useUnmergedTree = true).performClick()
+            await { iconVisible() }
+            assertEquals(value.id,app.database.dao().currentBreak()!!.id)
+        }
+        tapIcon(); await { nativeText("Scrolling break") }
+        clickWindow("Collapse"); await { iconVisible() && !BreakTimerService.status.value.expanded }
+        assertTrue(app.breaks.remaining(app.database.dao().breakSession(value.id)!!) < before)
+        nearExpiry(value.id)
+        expect("Your break is over")
+        await { !BreakTimerService.status.value.visible }
+        assertNull(app.database.dao().currentFocus())
+        compose.onNode(hasText("Snooze 5 min") and hasAnyAncestor(isDialog())).performClick()
+        await { iconVisible() }
+        assertEquals(1,app.database.dao().currentBreak()!!.snoozeCount)
+    }
+
+    @Test(timeout = 120_000) fun timerFitsLargeFontsAndCanStillExpandAndCollapse() = runBlocking<Unit> {
+        appOp("SYSTEM_ALERT_WINDOW", "allow")
+        begin()
+        fun icon(): AccessibilityNodeInfo? = nodes().firstOrNull { it.contentDescription?.toString() == "Open break timer" }
+        await { icon() != null }
+        val normal = Rect(); icon()!!.getBoundsInScreen(normal)
+        shell("settings put system font_scale 2.0")
+        await {
+            val big = Rect(); icon()?.getBoundsInScreen(big)
+            big.width() > normal.width() * 1.2f && big.height() > normal.height()
+        }
+        tapIcon(); await { nativeText("Scrolling break") }
+        clickWindow("Collapse")
+        await { icon() != null && !BreakTimerService.status.value.expanded }
     }
 
     @Test(timeout = 120_000) fun iconMovesToEdgeRestoresAfterRestartAndExpandsAndCollapses() = runBlocking<Unit> {

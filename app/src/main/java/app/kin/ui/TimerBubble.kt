@@ -5,7 +5,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,19 +19,22 @@ import app.kin.services.BreakNotifications
 
 @Composable
 fun TimerBubble(focus: Boolean, paused: Boolean, due: Boolean, remaining: Long, stage: Evolution,
-                onTap: () -> Unit, onDrag: (Float, Float) -> Unit, onDrop: () -> Unit) {
-    Surface(Modifier.size(68.dp).semantics {
+                onTap: () -> Unit, onDrag: (Float, Float) -> Unit, onDrop: () -> Unit, widthDp: Float = 112f, heightDp: Float = 64f) {
+    Surface(Modifier.width(widthDp.dp).height(heightDp.dp).semantics {
         contentDescription = if (focus) "Open focus timer" else "Open break timer"
         stateDescription = if (due) "Break over" else "${BreakNotifications.format(remaining)}${if (paused) ", paused" else ""}"
     }.clickable(onClick = onTap).pointerInput(Unit) {
         detectDragGestures(onDragEnd = onDrop, onDragCancel = onDrop) { change, amount -> change.consume(); onDrag(amount.x, amount.y) }
-    }, shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 6.dp,
-        border = androidx.compose.foundation.BorderStroke(2.dp, if (due) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)) {
-        Box(Modifier.clearAndSetSemantics { }, contentAlignment = Alignment.Center) {
-            CompanionArt(stage, true, Modifier.size(56.dp), if (focus) CreatureMood.SLEEPING else CreatureMood.WAVING)
-            Text(if (due) "!" else if (paused) "Ⅱ" else if (focus) "Focus" else "Break",
-                Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp), style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+    }, shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (due) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)) {
+        Row(Modifier.clearAndSetSemantics { }.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            CompanionArt(stage, true, Modifier.size(38.dp), if (focus) CreatureMood.SLEEPING else CreatureMood.WAVING)
+            Column {
+                Text(if (due) "RETURN" else if (paused) "PAUSED" else if (focus) "FOCUS" else "BREAK",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (due) "00:00" else BreakNotifications.format(remaining), style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
+                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -39,7 +42,7 @@ fun TimerBubble(focus: Boolean, paused: Boolean, due: Boolean, remaining: Long, 
 @Composable
 fun TimerControls(focus: Boolean, paused: Boolean, title: String, remaining: Long, maxHeight: Float,
                   onCollapse: () -> Unit, onPause: () -> Unit, onStart: () -> Unit, onStop: () -> Unit) {
-    Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), shadowElevation = 6.dp) {
+    Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), shadowElevation = 4.dp) {
         Column(Modifier.fillMaxWidth().heightIn(max = maxHeight.dp).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
