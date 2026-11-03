@@ -1,5 +1,10 @@
 # Validation record
 
+## 0.8.1 repeat-expiry sound repair
+
+- Candidate allows a newly claimed expiry to alert when updating the existing silent snooze acknowledgment. Persisted revision claims still prevent repeat tick alerts. A regression assertion keeps the acknowledgment present and verifies the next expiry clears Android’s only-alert-once flag.
+- Local and API 26/35 checks and APK publication are pending. The previous 0.8 record below remains the completed baseline.
+
 ## 0.8 offline release and timer alerts
 
 - Tested app/test/build revision: [`9f79d9a`](https://github.com/hosannaute/kin_-adhd_-companion/commit/9f79d9acf3e87586460abffca2562cddb0aadec2). [CI run 41723793706](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41723793706) completed successfully: build, API 26 and API 35 jobs all passed. **56 unit tests and 77 device scenarios per API passed, with 0 failures and 0 skips**, as recorded in check annotations. Publication follow-up changes only documentation, screenshots, ignore rules and APK/checksum files; tested app/test/build source is unchanged.

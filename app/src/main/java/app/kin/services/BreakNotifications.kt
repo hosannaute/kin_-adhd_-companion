@@ -70,7 +70,9 @@ object BreakNotifications {
         val pref = app.preferences.flow.first()
         if (!app.breaks.claimReminder(value.id, value.revision)) return
         val message = BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount, pref.reminderStyle)
-        val builder = TimerAlerts.builder(app, TimerAlertKind.BREAK, pref)
+        // The silent snooze acknowledgement uses this same notification ID.
+        // A new, claimed expiry must alert even when it updates that existing record.
+        val builder = TimerAlerts.builder(app, TimerAlertKind.BREAK, pref).setOnlyAlertOnce(false)
             .setContentTitle("Your break is over").setContentText(message).setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setContentIntent(open(app, value, true))
             .addAction(0, "Start task", open(app, value, true))

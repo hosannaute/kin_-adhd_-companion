@@ -1,10 +1,10 @@
-# KIN 0.8 offline release and handover
+# KIN 0.8.1 offline release and handover
 
 KIN runs on the phone without ChatGPT, a Plus subscription, an account or an API key. Keep the GitHub repository and APK. Your installed app will continue working when a subscription ends.
 
 ## Timer alerts
 
-Settings → Timer alerts offers Sound + vibration, Vibration only and Silent. Break expiry uses a short original two-note chime; natural focus completion uses a softer, lower chime. The ongoing countdown, pause/resume, early finish and snooze acknowledgment stay silent. A new alert is eligible when a snoozed break expires. A persisted break revision claim and the transactional focus completion guard prevent repeated ticks or competing completion paths from posting the same alert again.
+Settings → Timer alerts offers Sound + vibration, Vibration only and Silent. Break expiry uses a short original two-note chime; natural focus completion uses a softer, lower chime. The ongoing countdown, pause/resume, early finish and snooze acknowledgment stay silent. A new alert is eligible when a snoozed break expires. A new expiry explicitly enables alerting when it replaces the silent snooze acknowledgment; repeated ticks are deduplicated by the saved revision claim. A persisted break revision claim and the transactional focus completion guard prevent repeated ticks or competing completion paths from posting the same alert again.
 
 Both the in-app and outside-app expiry paths use notifications for sound. Allow Android notifications to hear an alert. Quiet hours silence timer sound and vibration while keeping the reminder visible; task reminders during quiet hours remain skipped. Android notification volume, channel choices, app notification permission and Do Not Disturb still apply. KIN does not bypass them or change the phone's volume. Test buttons post real, short-lived notifications using these same settings; they also respect quiet hours.
 
