@@ -49,7 +49,7 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
                     Text("Focus complete · +15 XP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text("Progress saved. Ready for a little break?")
                 } else Text("Take a scrolling break", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Set a break length and a task to return to. A floating countdown becomes a large companion reminder at zero.")
+                Text("Set a break length and a task to return to. Tap the movable icon for your countdown. A large companion reminder appears at zero.")
                 Button(onClick = { showBreakSetup = true }, modifier = Modifier.fillMaxWidth()) { Text(if (latest?.completed == true) "Plan next break" else "Plan a scrolling break") }
             } }
             item { SoftCard {
@@ -64,9 +64,13 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     val companion by vm.companion.collectAsStateWithLifecycle()
     val count by vm.sessionCount.collectAsStateWithLifecycle()
-    var minutes by rememberSaveable { mutableIntStateOf(25) }
-    var custom by rememberSaveable { mutableStateOf("25") }
-    var taskId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val recent by vm.timerOptions.collectAsStateWithLifecycle()
+    val options = recent ?: return
+    var minutes by rememberSaveable { mutableStateOf(options.focusMinutes.toString()) }
+    var taskId by rememberSaveable { mutableStateOf(tasks.firstOrNull { it.id == options.taskId && !it.resolved }?.id) }
+    var taskPicked by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(tasks) { if (!taskPicked && taskId == null) taskId = tasks.firstOrNull { it.id == options.taskId && !it.resolved }?.id }
+
     Box(Modifier.fillMaxSize()) {
         WorldLandscape(night = true, modifier = Modifier.fillMaxSize(), unlocked = 2)
         Box(Modifier.fillMaxSize().background(Color(0xFF101D32).copy(alpha=.55f)))
@@ -77,24 +81,16 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
             if (session == null) {
                 item { SoftCard {
                     Text("Choose your focus duration", fontWeight = FontWeight.Bold)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        listOf(5,15,25,45).forEach { duration -> FilterChip(minutes == duration, { minutes = duration; custom = duration.toString() }, label = { Text("$duration m") }) }
-                    }
-                    OutlinedTextField(custom, { value -> custom = value.filter(Char::isDigit).take(3); custom.toIntOrNull()?.takeIf { it in 1..180 }?.let { minutes = it } },
-                        label = { Text("Custom minutes (1–180)") }, singleLine = true,
-                        isError = custom.toIntOrNull()?.let { it !in 1..180 } ?: true,
-                        supportingText = { Text("Selected duration: $minutes minutes") })
-                    Text("Focus on")
-                    FilterChip(taskId == null, { taskId = null }, label = { Text("Just a little time for me") })
-                    tasks.filter { !it.resolved }.forEach { task ->
-                        FilterChip(taskId == task.id, { taskId = task.id }, label = { Text(task.title) })
-                    }
+                    MinutesPicker(minutes, { minutes = it }, listOf(5,10,15,25,45), "Focus minutes")
+                    ChoiceList("Focus on", tasks.firstOrNull { it.id == taskId }?.title ?: "Just a little time for me",
+                        listOf("0" to "Just a little time for me") + tasks.filter { !it.resolved }.map { it.id.toString() to it.title }) { taskPicked = true; taskId = it.toLong().takeIf { key -> key > 0 } }
+
                 } }
             }
             if (session == null) item { TextButton(onClick = { vm.focusSetupRequested.value = false }) { Text("Back to break or focus") } }
             item { CompanionArt(Evolution.at(companion?.xp ?: 0), pref.reducedMotion, Modifier.size(140.dp), CreatureMood.SLEEPING) }
             item {
-                val millis = if (session != null) timer.remainingMillis else minutes * 60_000L
+                val millis = if (session != null) timer.remainingMillis else (minutes.toIntOrNull() ?: 0) * 60_000L
                 val seconds = (millis + 999) / 1000
                 Box(Modifier.size(230.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(progress = { if (session != null) (millis.toFloat() / session!!.durationMillis).coerceIn(0f,1f) else 1f },
@@ -107,7 +103,10 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
             }
             item {
                 val current = session
-                if (current == null) Button(onClick = { vm.action { vm.repository.startFocus(minutes, tasks.firstOrNull { it.id == taskId }) } }) {
+                if (current == null) Button(enabled = minutes.toIntOrNull() in 1..180, onClick = { vm.action {
+                    vm.app.timerPreferences.focusChoice(minutes.toInt(), taskId)
+                    vm.repository.startFocus(minutes.toInt(), tasks.firstOrNull { it.id == taskId })
+                } }) {
                     Icon(Icons.Outlined.PlayArrow, null); Text(" Start focus")
                 } else Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(onClick = { vm.action { if (current.running) vm.repository.pauseFocus(current.id) else vm.repository.resumeFocus(current.id) } }) {

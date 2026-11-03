@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.text.format.DateFormat
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -76,13 +77,25 @@ fun TaskEditor(task: Task?, goals: List<PersonalGoal>, onDismiss: () -> Unit, on
     var priority by remember { mutableIntStateOf(task?.priority ?: 1) }
     var reminder by remember { mutableStateOf(task?.reminder ?: false) }
     var goalId by remember { mutableStateOf(task?.goalId) }
+    var notesOpen by remember { mutableStateOf(description.isNotBlank()) }
+    var customCategory by remember { mutableStateOf(category !in listOf("Personal", "Study", "Work", "Home", "Health")) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text(if (task == null) "A new adventure" else "Your adventure") },
         text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedTextField(title, { title = it }, label = { Text("Task name") }, singleLine = true)
-            OutlinedTextField(description, { description = it }, label = { Text("Notes") }, minLines = 2)
-            OutlinedTextField(category, { category = it }, label = { Text("Category") }, singleLine = true)
-            OutlinedTextField(minutes, { minutes = it.filter(Char::isDigit) }, label = { Text("Estimated minutes (1–1440)") }, singleLine = true)
+            if (notesOpen) OutlinedTextField(description, { description = it }, label = { Text("Notes") }, minLines = 2)
+            else TextButton(onClick = { notesOpen = true }) { Text("Add notes (optional)") }
+            ChoiceList("Category", if (customCategory) "Custom category" else category,
+                listOf("Personal", "Study", "Work", "Home", "Health", "Custom").map { it to it }) {
+                customCategory = it == "Custom"; if (!customCategory) category = it
+            }
+            if (customCategory) OutlinedTextField(category, { category = it }, label = { Text("Category name") }, singleLine = true)
+            MinutesPicker(minutes, { minutes = it }, listOf(15,30,45,60), "Estimated minutes", 1440)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                listOf("Today" to 0L, "Tomorrow" to 1L, "Next week" to 7L).forEach { (label, days) ->
+                    FilterChip(date == LocalDate.now(zone).plusDays(days), { date = LocalDate.now(zone).plusDays(days); scheduleChanged = true }, label = { Text(label) })
+                }
+            }
             OutlinedButton(onClick = {
                 DatePickerDialog(context, { _, year, month, day -> date = LocalDate.of(year, month + 1, day); scheduleChanged = true },
                     date.year, date.monthValue - 1, date.dayOfMonth).show()
@@ -92,8 +105,7 @@ fun TaskEditor(task: Task?, goals: List<PersonalGoal>, onDismiss: () -> Unit, on
                     time.hour, time.minute, DateFormat.is24HourFormat(context)).show()
             }) { Icon(Icons.Outlined.Schedule, null); Text(" Time: ${time.format(DateTimeFormatter.ofPattern("h:mm a"))}") }
             Text("Schedule time zone: ${zone.id}", style = MaterialTheme.typography.bodySmall)
-            Text("Repeat")
-            RepeatRule.entries.forEach { rule -> FilterChip(repeat == rule, { repeat = rule }, label = { Text(rule.label) }) }
+            ChoiceList("Repeat", repeat.label, RepeatRule.entries.map { it.name to it.label }) { repeat = RepeatRule.valueOf(it) }
             if (repeat != RepeatRule.NONE) Text("Completing or skipping creates the next future date. Missed dates won't pile up. Repeats keep this time zone.",
                 style = MaterialTheme.typography.bodySmall)
             Text("Priority")
@@ -103,11 +115,8 @@ fun TaskEditor(task: Task?, goals: List<PersonalGoal>, onDismiss: () -> Unit, on
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(reminder, { reminder = it }); Text("Gentle reminder")
             }
-            if (goals.isNotEmpty()) {
-                Text("Personal goal")
-                FilterChip(goalId == null, { goalId = null }, label = { Text("No goal") })
-                goals.forEach { goal -> FilterChip(goalId == goal.id, { goalId = goal.id }, label = { Text(goal.title) }) }
-            }
+            if (goals.isNotEmpty()) ChoiceList("Personal goal", goals.firstOrNull { it.id == goalId }?.title ?: "No goal",
+                listOf("0" to "No goal") + goals.map { it.id.toString() to it.title }) { goalId = it.toLong().takeIf { key -> key > 0 } }
             if (task != null) {
                 Text(when { task.skipped -> "Skipped · no XP"; task.completed -> "Completed · XP already awarded"; else -> "Snoozed ${task.snoozeCount} times" })
                 if (!task.resolved && onSnooze != null) TextButton(onClick = onSnooze) { Text("Snooze for 10 minutes") }

@@ -21,17 +21,18 @@ import app.kin.domain.*
 import app.kin.ui.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-data class BreakTimerStatus(val running: Boolean = false, val visible: Boolean = false, val message: String = "Break timer is off")
+data class BreakTimerStatus(val running: Boolean = false, val visible: Boolean = false, val message: String = "Timer icon is off", val expanded: Boolean = false)
 
-/** Explicitly user-started foreground countdown; WorkManager is the persisted fallback. */
+/** One user-started foreground owner for both persisted clocks. View attachment never owns time. */
 class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private val registry = LifecycleRegistry(this)
     override val lifecycle: Lifecycle get() = registry
-    private val savedState = SavedStateRegistryController.create(this)
-    override val savedStateRegistry: SavedStateRegistry get() = savedState.savedStateRegistry
+    private val saved = SavedStateRegistryController.create(this)
+    override val savedStateRegistry get() = saved.savedStateRegistry
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val lock = Mutex()
     private val app get() = application as KinApplication
@@ -39,32 +40,40 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private var root: FrameLayout? = null
     private var attached = false
     private var activated = false
+    private var lastStartId = 0
     private var current by mutableStateOf<BreakSession?>(null)
+    private var focus by mutableStateOf<FocusSession?>(null)
     private var pref by mutableStateOf<UserPreferences?>(null)
     private var stage by mutableStateOf(Evolution.EGG)
+    private var expanded by mutableStateOf(false)
     private var acknowledgment by mutableStateOf(false)
-    private var large by mutableStateOf(false)
     private var remaining by mutableLongStateOf(0)
-    private var attachedLarge = false
+    private var options = TimerOptions()
+    private var positionLoaded = false
+    private var dragging = false
     private var ackUntil = 0L
+    private var seenDue = ""
     private var previous: BreakSession? = null
+    private var modeKey = ""
     private var notificationKey = ""
+    private var layoutKey = ""
+    private var params: WindowManager.LayoutParams? = null
+    private var retryAfter = 0L
+    private var windowError: String? = null
 
     override fun onCreate() {
-        super.onCreate()
-        savedState.performAttach(); savedState.performRestore(null)
+        super.onCreate(); saved.performAttach(); saved.performRestore(null)
         registry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         windows = getSystemService(WindowManager::class.java)
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
         if (!activated) {
             try { startForeground(BreakNotifications.FOREGROUND_ID, BreakNotifications.foreground(this, null)) }
-            catch (_: RuntimeException) {
-                status.value = BreakTimerStatus(message = "Background countdown unavailable. The saved timer and notification fallback remain available.")
-                stopSelf(); return START_NOT_STICKY
-            }
+            catch (_: RuntimeException) { status.value = BreakTimerStatus(message = "Background timer unavailable. Reopen KIN to recover the saved timer."); stopSelf(); return START_NOT_STICKY }
             activated = true
             registry.handleLifecycleEvent(Lifecycle.Event.ON_START); registry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+            scope.launch { options = app.timerPreferences.flow.first(); positionLoaded = true; tick() }
             scope.launch { app.preferences.flow.collect { pref = it; tick() } }
             scope.launch { app.database.dao().companion().collect { stage = Evolution.at(it?.xp ?: 0) } }
             scope.launch { while (isActive) { tick(); delay(500) } }
@@ -75,130 +84,169 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         if (!activated) return@withLock
         try {
             val found = app.database.dao().currentBreak()
-            val value = found?.let { app.breaks.refresh(it.id) }
-            if (value == null || value.phase !in listOf("RUNNING", "PAUSED", "DUE")) { stopSelf(); return@withLock }
+            val rest = found?.let { app.breaks.refresh(it.id) }?.takeIf { it.phase in listOf("RUNNING", "PAUSED", "DUE") }
+            var work = if (rest == null) app.database.dao().currentFocus() else null
+            if (work != null) {
+                if (app.repository.refreshFocus(work.id)) Notifications.show(app, Int.MAX_VALUE,
+                    "A little progress, well earned", "Your focus session is complete. +15 XP", "focus")
+                work = app.database.dao().currentFocus()
+            }
+            if (rest == null && work == null) { stopSelf(lastStartId); return@withLock }
+            val nextMode = if (rest != null) "break:${rest.id}" else "focus:${work!!.id}"
+            if (nextMode != modeKey) { expanded = false; modeKey = nextMode; ackUntil = 0; layoutKey = "" }
             val old = previous
-            if (old?.id == value.id && value.snoozeCount > old.snoozeCount && value.phase == "RUNNING") ackUntil = SystemClock.elapsedRealtime() + 4_000
-            previous = value; current = value
-            val left = app.breaks.remaining(value)
-            remaining = left
-            val key = "${value.id}:${value.revision}:${value.phase}:${if (value.phase == "RUNNING") (left + 999) / 1000 else 0}"
+            if (rest != null && old?.id == rest.id && rest.snoozeCount > old.snoozeCount && rest.phase == "RUNNING") {
+                ackUntil = SystemClock.elapsedRealtime() + 4_000; expanded = true
+            }
+            previous = rest; current = rest; focus = work
+            if (rest?.phase == "DUE") {
+                val key = "${rest.id}:${rest.revision}"
+                if (key != seenDue) { seenDue = key; expanded = true }
+            }
+            val ack = rest?.phase == "RUNNING" && SystemClock.elapsedRealtime() < ackUntil
+            if (acknowledgment && !ack) expanded = false
+            acknowledgment = ack
+            remaining = if (rest != null) app.breaks.remaining(rest) else app.repository.remaining(work!!)
+            val key = "$nextMode:${rest?.revision}:${rest?.phase}:${work?.running}:${(remaining + 999) / 1000}"
             if (key != notificationKey) {
-                try { getSystemService(NotificationManager::class.java).notify(BreakNotifications.FOREGROUND_ID, BreakNotifications.foreground(this, value, left)) }
-                catch (_: SecurityException) { /* Muting notifications must not stop the countdown. */ }
+                try { getSystemService(NotificationManager::class.java).notify(BreakNotifications.FOREGROUND_ID,
+                    if (rest != null) BreakNotifications.foreground(this, rest, remaining) else FocusTimerNotifications.foreground(this, work!!, remaining)) }
+                catch (_: SecurityException) { }
                 notificationKey = key
             }
-            acknowledgment = value.phase == "RUNNING" && SystemClock.elapsedRealtime() < ackUntil
-            large = value.phase == "DUE" || acknowledgment
             val locked = getSystemService(KeyguardManager::class.java).isKeyguardLocked || !getSystemService(PowerManager::class.java).isInteractive
-            // A deliberately started break must return on time, including during quiet hours.
-            // Passive task/app-usage reminders retain their quiet-hour rules.
-            val eligible = pref != null && Settings.canDrawOverlays(this) &&
-                !locked && !OverlayPreviewService.visible.value && !PipVisibility.visible.value && !KinVisibility.resumed.value
+            val eligible = pref != null && positionLoaded && Settings.canDrawOverlays(this) && !locked &&
+                !OverlayPreviewService.visible.value && !PipVisibility.visible.value && !KinVisibility.resumed.value
             if (eligible) show() else hide()
             status.value = BreakTimerStatus(true, attached, when {
                 attached && acknowledgment -> "Snoozed · remember your goal"
-                attached && large -> "Time to return to your task"
-                attached -> "Floating break countdown is visible"
-                !Settings.canDrawOverlays(this) -> "Window permission is off · enable it below to show reminders over other apps"
-                value.phase == "PAUSED" -> "Break paused"
-                value.phase == "RUNNING" -> "Break countdown is running"
-                locked -> "Break ended · waiting for screen unlock"
-                else -> "Break ended · open KIN or its reminder to choose focus time"
-            })
-            // Keep the notification available even if Android hides overlays on a sensitive screen.
-            if (value.phase == "DUE") BreakNotifications.due(app, value)
+                attached && expanded -> "Timer controls are open"
+                attached -> "Timer icon is at the screen edge · tap for controls"
+                !Settings.canDrawOverlays(this) -> "Window permission is off · enable it to show the timer icon"
+                windowError != null -> windowError!!
+                locked -> "Timer saved · window returns after unlock"
+                else -> "Timer is active · icon appears outside KIN"
+            }, expanded)
+            if (rest?.phase == "DUE") BreakNotifications.due(app, rest)
         } catch (e: CancellationException) { throw e
         } catch (_: Exception) {
-            hide(); status.value = BreakTimerStatus(message = "Couldn't refresh the break timer. Reopen KIN to recover it."); stopSelf()
+            // A transient read/window failure must not turn off the foreground clock owner.
+            hide(); status.value = BreakTimerStatus(true, false, "Recovering the saved timer. You can reopen KIN anytime.")
         }
     }
     @Suppress("DEPRECATION")
-    private fun screen(): DisplayMetrics = DisplayMetrics().also { windows.defaultDisplay.getRealMetrics(it) }
+    private fun screen() = DisplayMetrics().also { windows.defaultDisplay.getRealMetrics(it) }
+    private fun collapse() { expanded = false; acknowledgment = false; ackUntil = 0; layoutKey = ""; scope.launch { tick() } }
     private fun show() {
-        val preference = pref ?: return
+        if (SystemClock.elapsedRealtime() < retryAfter) return
+        val settings = pref ?: return
         val metrics = screen()
-        val width = minOf(metrics.widthPixels - (32 * metrics.density).toInt(), ((if (large) 340 else 210) * metrics.density).toInt()).coerceAtLeast(1)
-        val maxHeight = ((metrics.heightPixels / metrics.density) - 72).coerceAtLeast(180f)
-        if (root == null) root = FrameLayout(this).apply {
-            setViewTreeLifecycleOwner(this@BreakTimerService)
-            setViewTreeSavedStateRegistryOwner(this@BreakTimerService)
+        val icon = (68 * metrics.density).toInt()
+        val width = if (expanded) minOf(metrics.widthPixels - (16 * metrics.density).toInt(), (320 * metrics.density).toInt()) else icon
+        val margin = (32 * metrics.density).toInt()
+        val maxHeight = (metrics.heightPixels / metrics.density - 72).coerceAtLeast(180f)
+        if (root == null) root = object : FrameLayout(this) {
+            // ViewGroup may discard ACTION_OUTSIDE before an OnTouchListener sees it.
+            // Observe it at dispatch; actual clicks remain with Compose and the other app.
+            override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+                if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) { if (expanded) collapse(); return false }
+                return super.dispatchTouchEvent(event)
+            }
+        }.apply {
+            setViewTreeLifecycleOwner(this@BreakTimerService); setViewTreeSavedStateRegistryOwner(this@BreakTimerService)
+            addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> constrain() }
             addView(ComposeView(this@BreakTimerService).apply {
                 setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
-                setContent {
-                    val value = current
-                    val settings = pref ?: preference
-                    KinTheme(settings.darkMode) {
-                        if (value != null && large) BreakPromptPanel(value, settings, stage, acknowledgment, maxHeight,
-                            onStart = { openFocusPicker(value) },
-                            onSnooze = { scope.launch { if (app.breaks.snooze(value.id, value.revision)) {
-                                app.database.dao().breakSession(value.id)?.let { BreakNotifications.snoozed(app, it) }; tick()
-                            } } },
-                            onStop = { scope.launch { app.breaks.stop(value.id, value.revision); tick() } })
-                        else if (value != null) BreakCountdownPanel(value, remaining, settings, stage,
-                            onOpen = { openFocusPicker(value, false) },
-                            onPause = { scope.launch {
-                                if (value.phase == "PAUSED") app.breaks.resume(value.id, value.revision)
-                                else app.breaks.pause(value.id, value.revision)
-                                tick()
-                            } })
-                    }
-                }
+                setContent { KinTheme(pref?.darkMode ?: settings.darkMode) {
+                    val rest = current; val work = focus; val preference = pref ?: settings
+                    if (!expanded) TimerBubble(work != null, rest?.phase == "PAUSED" || work?.running == false,
+                        rest?.phase == "DUE", remaining, stage,
+                        onTap = { expanded = true; layoutKey = ""; scope.launch { tick() } }, onDrag = ::drag, onDrop = ::dock)
+                    else if (rest != null && (rest.phase == "DUE" || acknowledgment)) {
+                        androidx.compose.foundation.layout.Column {
+                            androidx.compose.material3.TextButton(onClick = { collapse() }) { androidx.compose.material3.Text("Collapse") }
+                            BreakPromptPanel(rest, preference, stage, acknowledgment, maxHeight - 48,
+                                onStart = { openBreak(rest) }, onSnooze = { scope.launch {
+                                    if (app.breaks.snooze(rest.id, rest.revision)) app.database.dao().breakSession(rest.id)?.let { BreakNotifications.snoozed(app, it) }; tick()
+                                } }, onStop = { scope.launch { app.breaks.stop(rest.id, rest.revision); tick() } })
+                        }
+                    } else if (rest != null || work != null) TimerControls(work != null,
+                        rest?.phase == "PAUSED" || work?.running == false, rest?.taskTitle ?: work!!.taskTitle, remaining, maxHeight,
+                        onCollapse = { collapse() }, onPause = { scope.launch {
+                            if (rest != null) { if (rest.phase == "PAUSED") app.breaks.resume(rest.id, rest.revision) else app.breaks.pause(rest.id, rest.revision) }
+                            else if (work != null) { if (work.running) app.repository.pauseFocus(work.id) else app.repository.resumeFocus(work.id) }; tick()
+                        } }, onStart = { rest?.let { openBreak(it) } }, onStop = { scope.launch {
+                            if (rest != null) app.breaks.stop(rest.id, rest.revision) else if (work != null) app.repository.stopFocus(work.id); tick()
+                        } })
+                } }
             })
         }
-        val params = WindowManager.LayoutParams(width, WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+        if (attached && root?.isAttachedToWindow != true) { attached = false; layoutKey = ""; BreakPromptVisibility.release("break-service") }
+        val height = if (expanded) WindowManager.LayoutParams.WRAP_CONTENT else icon
+        val key = "$expanded:${metrics.widthPixels}:${metrics.heightPixels}:${options.dockRight}:${options.verticalFraction}"
+        @Suppress("RtlHardcoded")
+        val layout = WindowManager.LayoutParams(width, height, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT).apply {
-                gravity = if (large) Gravity.CENTER else Gravity.TOP or Gravity.END
-                if (!large) { x = (16 * metrics.density).toInt(); y = (90 * metrics.density).toInt() }
+                gravity = Gravity.TOP or Gravity.LEFT
+                x = BubblePosition.x(options.dockRight, metrics.widthPixels, width)
+                val expectedHeight = if (expanded) root?.height?.takeIf { it > icon } ?: (360 * metrics.density).toInt() else icon
+                y = BubblePosition.y(options.verticalFraction, metrics.heightPixels, expectedHeight, margin)
             }
-        if (attached) {
-            if (attachedLarge != large) {
-                try { windows.updateViewLayout(root, params); attachedLarge = large }
-                catch (_: RuntimeException) { hide() }
-            }
-            return
-        }
-        try { windows.addView(root, params); attached = true; attachedLarge = large; BreakPromptVisibility.acquire("break-service") }
-        catch (_: RuntimeException) { hide() /* The notification remains a usable fallback. */ }
-    }
-    private fun openFocusPicker(value: BreakSession, chooseFocus: Boolean = true) {
         try {
-            // This follows a direct tap on KIN's visible, permission-granted overlay.
-            startActivity(BreakNotifications.intent(this, value, chooseFocus).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            hide()
+            if (!attached) { windows.addView(root, layout); params = layout; attached = true; layoutKey = key; BreakPromptVisibility.acquire("break-service") }
+            else if (!dragging && layoutKey != key) { windows.updateViewLayout(root, layout); params = layout; layoutKey = key }
+            windowError = null
         } catch (_: RuntimeException) {
-            current = value
-            status.value = BreakTimerStatus(true, attached, "Open the KIN notification to choose your focus time.")
+            hide(); retryAfter = SystemClock.elapsedRealtime() + 2_000
+            windowError = "Android hid the window · retrying without resetting your timer"
         }
+    }
+    private fun drag(dx: Float, dy: Float) {
+        if (expanded || !attached) return
+        val layout = params ?: return
+        val metrics = screen(); dragging = true
+        layout.x = (layout.x + dx.toInt()).coerceIn(0, (metrics.widthPixels - layout.width).coerceAtLeast(0))
+        layout.y = (layout.y + dy.toInt()).coerceIn(0, (metrics.heightPixels - layout.height).coerceAtLeast(0))
+        try { windows.updateViewLayout(root, layout) } catch (_: RuntimeException) { hide() }
+    }
+    private fun constrain() {
+        if (!attached || dragging) return
+        val view = root ?: return; val layout = params ?: return; val metrics = screen()
+        val y = BubblePosition.y(options.verticalFraction, metrics.heightPixels, view.height, (32 * metrics.density).toInt())
+        if (layout.y != y) {
+            layout.y = y
+            try { windows.updateViewLayout(view, layout) } catch (_: RuntimeException) { hide() }
+        }
+    }
+    private fun dock() {
+        val layout = params ?: return
+        val metrics = screen(); val size = (68 * metrics.density).toInt()
+        val right = BubblePosition.nearestRight(layout.x, metrics.widthPixels, size)
+        val fraction = BubblePosition.fraction(layout.y, metrics.heightPixels, size, (32 * metrics.density).toInt())
+        options = options.copy(dockRight = right, verticalFraction = fraction); dragging = false; layoutKey = ""
+        scope.launch { app.timerPreferences.position(right, fraction); tick() }
+    }
+    private fun openBreak(value: BreakSession) {
+        try { startActivity(BreakNotifications.intent(this, value, true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); hide() }
+        catch (_: RuntimeException) { windowError = "Open KIN or its notification to choose focus time." }
     }
     private fun hide() {
-        if (attached) try { root?.let { windows.removeView(it) } } catch (_: IllegalArgumentException) { }
-        attached = false; BreakPromptVisibility.release("break-service")
+        if (attached) try { root?.let { windows.removeView(it) } } catch (_: RuntimeException) { }
+        attached = false; layoutKey = ""; BreakPromptVisibility.release("break-service")
     }
-    override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig); hide(); root = null }
+    override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig); hide(); root = null; dragging = false }
     override fun onDestroy() {
         hide(); scope.cancel()
-        if (activated) {
-            registry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-            registry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
-        }
-        registry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-        root = null
-        if (status.value.running) {
-            status.value = BreakTimerStatus()
-        }
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        super.onDestroy()
+        if (activated) { registry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE); registry.handleLifecycleEvent(Lifecycle.Event.ON_STOP) }
+        registry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY); root = null; if (status.value.running) status.value = BreakTimerStatus()
+        stopForeground(STOP_FOREGROUND_REMOVE); super.onDestroy()
     }
     override fun onBind(intent: Intent?) = null
     companion object {
         val status = MutableStateFlow(BreakTimerStatus())
         fun start(context: Context): Boolean = try {
             ContextCompat.startForegroundService(context, Intent(context, BreakTimerService::class.java)); true
-        } catch (_: RuntimeException) {
-            status.value = BreakTimerStatus(message = "Android blocked the background countdown. Reopen KIN; saved timers still recover."); false
-        }
+        } catch (_: RuntimeException) { status.value = BreakTimerStatus(message = "Android blocked the background timer. Reopen KIN to recover it."); false }
     }
 }

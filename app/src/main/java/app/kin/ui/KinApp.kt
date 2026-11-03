@@ -33,7 +33,10 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
             if (pref == null || permissionsReviewed == null) Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                 CircularProgressIndicator()
             } else if (permissionsReviewed != true) {
-                PermissionSetupScreen(vm) { vm.action { vm.app.preferences.markPermissionSetupReviewed() } }
+                PermissionSetupScreen(vm) { vm.action {
+                    if (!pref.onboarded) vm.app.preferences.save(pref.copy(onboarded = true))
+                    vm.app.preferences.markPermissionSetupReviewed()
+                } }
             } else if (!pref.onboarded) {
                 Onboarding(vm, pref)
             } else {

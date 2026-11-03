@@ -77,6 +77,14 @@ class BreakCycleTest {
             }
         }
     }
+    private fun tapIcon(focus: Boolean = false) {
+        val label = if (focus) "Open focus timer" else "Open break timer"
+        await {
+            var node = nodes().firstOrNull { it.packageName == app.packageName && it.contentDescription?.toString() == label }
+            while (node != null && !node.isClickable) node = node.parent
+            node?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+        }
+    }
     private fun launchFocus() {
         scenario = ActivityScenario.launch<MainActivity>(Intent(app, MainActivity::class.java).putExtra("route", "focus"))
         expect(if (runBlocking { app.database.dao().currentBreak() } == null) "A little focus" else "Your scrolling break")
@@ -108,6 +116,9 @@ class BreakCycleTest {
         app.stopService(Intent(app, BreakTimerService::class.java)); FloatingCompanionService.stop(app)
         await { !BreakTimerService.status.value.running && !FloatingCompanionService.status.value.running }
         app.preferences.markPermissionSetupReviewed()
+        app.timerPreferences.breakChoice(5,0,null)
+        app.timerPreferences.focusChoice(25,null)
+        app.timerPreferences.position(true,.25f)
         app.preferences.save(UserPreferences(onboarded = true, reducedMotion = true, quietStart = 0, quietEnd = 0))
         app.database.dao().allTasks().forEach { app.repository.deleteTask(it.id) }
         app.database.dao().goals().first().forEach { app.repository.deleteGoal(it.id) }
@@ -117,6 +128,7 @@ class BreakCycleTest {
         task = app.database.dao().allTasks().single()
     }
     @After fun cleanup() = runBlocking<Unit> {
+        automation.setRotation(android.app.UiAutomation.ROTATION_UNFREEZE)
         app.stopService(Intent(app, OverlayPreviewService::class.java))
         app.preferences.markPermissionSetupReviewed()
         appOp("POST_NOTIFICATION", "allow")
@@ -148,6 +160,138 @@ class BreakCycleTest {
         val info = automation.serviceInfo; info.flags = previousFlags; automation.serviceInfo = info
     }
 
+    @Test(timeout = 120_000) fun iconMovesToEdgeRestoresAfterRestartAndExpandsAndCollapses() = runBlocking<Unit> {
+        appOp("SYSTEM_ALERT_WINDOW", "allow")
+        val value = begin(); anotherApp()
+        await { nodes().any { it.contentDescription?.toString() == "Open break timer" } }
+        val before = app.breaks.remaining(app.database.dao().breakSession(value.id)!!)
+        val bounds = Rect()
+        nodes().first { it.contentDescription?.toString() == "Open break timer" }.getBoundsInScreen(bounds)
+        val rootBounds = Rect()
+        nodes().first { it.packageName == app.packageName + ".test" }.getBoundsInScreen(rootBounds)
+        var down = SystemClock.uptimeMillis()
+        fun motion(action: Int, x: Float, y: Float) {
+            val event = android.view.MotionEvent.obtain(down, SystemClock.uptimeMillis(), action,x,y,0)
+            event.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+            try { assertTrue(automation.injectInputEvent(event,true)) } finally { event.recycle() }
+        }
+        motion(android.view.MotionEvent.ACTION_DOWN,bounds.exactCenterX(),bounds.exactCenterY())
+        for (step in 1..10) {
+            val fraction = step / 10f
+            motion(android.view.MotionEvent.ACTION_MOVE,
+                bounds.exactCenterX() + (bounds.width()/2f + 4 - bounds.exactCenterX()) * fraction,
+                bounds.exactCenterY() + (rootBounds.height()*.6f - bounds.exactCenterY()) * fraction)
+            SystemClock.sleep(30)
+        }
+        motion(android.view.MotionEvent.ACTION_UP,bounds.width()/2f+4,rootBounds.height()*.6f)
+        await { !runBlocking { app.timerPreferences.flow.first().dockRight } }
+        val stored = app.timerPreferences.flow.first()
+        assertTrue(stored.verticalFraction > .3f)
+        tapIcon(); await { nativeText("Scrolling break") && nativeText("Start task") }
+        // A real touch outside the window must collapse it.
+        down = SystemClock.uptimeMillis()
+        motion(android.view.MotionEvent.ACTION_DOWN,rootBounds.right - 6f,rootBounds.exactCenterY())
+        motion(android.view.MotionEvent.ACTION_UP,rootBounds.right - 6f,rootBounds.exactCenterY())
+        await { !BreakTimerService.status.value.expanded }
+        app.stopService(Intent(app, BreakTimerService::class.java))
+        await { !BreakTimerService.status.value.running }
+        shell("input keyevent 4"); expect("Your scrolling break")
+        await { BreakTimerService.status.value.running }
+        anotherApp()
+        await { nodes().any { it.contentDescription?.toString() == "Open break timer" } }
+        val restored = Rect()
+        nodes().first { it.contentDescription?.toString() == "Open break timer" }.getBoundsInScreen(restored)
+        assertTrue(restored.left < restored.width()/2)
+        assertEquals(stored.verticalFraction,app.timerPreferences.flow.first().verticalFraction,0f)
+        assertTrue(app.breaks.remaining(app.database.dao().breakSession(value.id)!!) < before)
+        assertEquals(value.id,app.database.dao().currentBreak()!!.id)
+        automation.setRotation(android.app.UiAutomation.ROTATION_FREEZE_90)
+        await {
+            val fixture = nodes().firstOrNull { it.packageName == app.packageName + ".test" }
+            val screen = Rect(); fixture?.getBoundsInScreen(screen)
+            val icon = Rect(); nodes().firstOrNull { it.contentDescription?.toString() == "Open break timer" }?.getBoundsInScreen(icon)
+            screen.width() > screen.height() && icon.width() > 0 && icon.left < icon.width()/2 && icon.bottom <= screen.bottom
+        }
+        assertEquals(stored.verticalFraction,app.timerPreferences.flow.first().verticalFraction,0f)
+        automation.setRotation(android.app.UiAutomation.ROTATION_UNFREEZE)
+    }
+
+    @Test(timeout = 120_000) fun repeatedAppSwitchesKeepOneIconAndFocusReusesItWithLiveControls() = runBlocking<Unit> {
+        appOp("SYSTEM_ALERT_WINDOW", "allow")
+        val value = begin()
+        repeat(3) {
+            anotherApp()
+            await { nodes().count { it.contentDescription?.toString() == "Open break timer" } == 1 }
+            shell("input keyevent 4"); expect("Your scrolling break")
+        }
+        app.breaks.startFocus(value.id,value.revision,10)
+        await { app.run { runBlocking { database.dao().currentFocus() != null } } }
+        anotherApp()
+        await { nodes().count { it.contentDescription?.toString() == "Open focus timer" } == 1 }
+        tapIcon(true); await { nativeText("Focus timer") }
+        clickWindow("Pause")
+        await { !runBlocking { app.database.dao().currentFocus()!!.running } }
+        val paused = app.database.dao().currentFocus()!!
+        clickWindow("Collapse"); tapIcon(true); clickWindow("Resume")
+        await { runBlocking { app.database.dao().currentFocus()!!.running } }
+        assertEquals(paused.id,app.database.dao().currentFocus()!!.id)
+        clickWindow("Finish early")
+        await { !BreakTimerService.status.value.running }
+        assertFalse(app.database.dao().session(paused.id)!!.completed)
+    }
+
+    @Test(timeout = 120_000) fun focusNotificationControlsWorkWhenOverlayPermissionIsDenied() = runBlocking<Unit> {
+        val xp = app.database.dao().companion().first()?.xp ?: 0
+        val id = app.repository.startFocus(15,task)
+        launchFocus(); anotherApp()
+        fun action(label: String): android.app.PendingIntent? = notifications.activeNotifications
+            .firstOrNull { it.id == BreakNotifications.FOREGROUND_ID }?.notification?.actions
+            ?.firstOrNull { it.title.toString() == label }?.actionIntent
+        await { action("Pause focus") != null }
+        assertFalse(BreakTimerService.status.value.visible)
+        val pause = action("Pause focus")!!
+        pause.send()
+        await { runBlocking { app.database.dao().currentFocus()?.running == false } }
+        val paused = app.database.dao().currentFocus()!!
+        pause.send()
+        await { action("Resume focus") != null }
+        action("Resume focus")!!.send()
+        await { runBlocking { app.database.dao().currentFocus()?.running == true } }
+        assertEquals(id,app.database.dao().currentFocus()!!.id)
+        assertTrue(app.repository.remaining(app.database.dao().currentFocus()!!) <= paused.remainingMillis)
+        await { action("Pause focus") != null }
+        action("Finish focus early")!!.send()
+        await { !BreakTimerService.status.value.running }
+        assertTrue(app.database.dao().session(id)!!.ended)
+        assertFalse(app.database.dao().session(id)!!.completed)
+        assertEquals(xp,app.database.dao().companion().first()?.xp ?: 0)
+    }
+
+    @Test(timeout = 120_000) fun presetsRememberDurationAndTaskAndCustomInputIsOnlyShownWhenChosen() = runBlocking<Unit> {
+        launchFocus()
+        compose.onNodeWithText("Plan a scrolling break").performClick()
+        compose.onNodeWithText("Break minutes (1–180)").assertDoesNotExist()
+        compose.onNodeWithText("10 m").performClick()
+        compose.onNodeWithText("Begin break").performClick()
+        expect("Your scrolling break")
+        assertEquals(600_000L,app.database.dao().currentBreak()!!.durationMillis)
+        compose.onNodeWithText("Stop break").performScrollTo().performClick()
+        expect("Plan a scrolling break")
+        compose.onNodeWithText("Plan a scrolling break").performClick()
+        compose.onNodeWithText("10 m").assertIsSelected()
+        compose.onNodeWithText("Begin break").performClick()
+        expect("Your scrolling break")
+        compose.onNodeWithText("Start task").performScrollTo().performClick()
+        compose.onNodeWithText("Focus minutes (1–180)").assertDoesNotExist()
+        compose.onNodeWithText("Custom").performScrollTo().performClick()
+        compose.onNodeWithText("Focus minutes (1–180)").performTextReplacement("7")
+        compose.onNodeWithText("Begin focus").performClick()
+        await { runBlocking { app.database.dao().currentFocus() != null } }
+        assertEquals(420_000L,app.database.dao().currentFocus()!!.durationMillis)
+        assertEquals(task.id,app.database.dao().currentFocus()!!.taskId)
+        assertEquals(7,app.timerPreferences.flow.first().focusMinutes)
+    }
+
     @Test(timeout = 120_000) fun firstOpenShowsPermissionsAndSkippingPersistsAcrossRecreation() = runBlocking<Unit> {
         app.preferences.markPermissionSetupReviewed(false)
         scenario = ActivityScenario.launch(MainActivity::class.java)
@@ -164,14 +308,14 @@ class BreakCycleTest {
         expect("Set up your companion")
     }
 
-    @Test(timeout = 120_000) fun freshInstallShowsPermissionSetupBeforeProfileOnboarding() = runBlocking<Unit> {
+    @Test(timeout = 120_000) fun freshInstallReachesHomeFromPermissionSetupWithoutTyping() = runBlocking<Unit> {
         app.preferences.save(UserPreferences(onboarded = false, reducedMotion = true))
         app.preferences.markPermissionSetupReviewed(false)
         scenario = ActivityScenario.launch(MainActivity::class.java)
         expect("Set up your companion")
         compose.onNodeWithText("Continue without floating window").performScrollTo().performClick()
-        expect("Welcome to your little clearing")
-        assertFalse(app.preferences.flow.first().onboarded)
+        expect("Hello, dreamer")
+        assertTrue(app.preferences.flow.first().onboarded)
     }
 
     @Test(timeout = 120_000) fun permissionPreviewShowsARealWindowAndReturnsWithoutCreatingATimer() = runBlocking<Unit> {
@@ -193,7 +337,8 @@ class BreakCycleTest {
         expect("Hello, dreamer")
         compose.onNodeWithText("Take a scrolling break").performScrollTo().performClick()
         expect("Plan a scrolling break")
-        compose.onNode(hasText(task.title) and hasAnyAncestor(isDialog())).performScrollTo().performClick()
+        compose.onNodeWithTag("choice:Return to task").performScrollTo().performClick()
+        compose.onNodeWithTag("option:Return to task:${task.id}").performClick()
         compose.onNodeWithText("Begin break").performClick()
         expect("Your scrolling break")
         assertEquals(task.id, app.database.dao().currentBreak()!!.taskId)
@@ -207,8 +352,8 @@ class BreakCycleTest {
         launchFocus()
         compose.onNodeWithTag("focus_screen").performScrollToNode(hasText("Plan a scrolling break"))
         compose.onNodeWithText("Plan a scrolling break").performClick()
-        compose.onNodeWithText("Write one paragraph").performScrollTo().performClick()
-        compose.onNodeWithText("Graduate confidently").performScrollTo().performClick()
+        compose.onNodeWithTag("choice:Return to task").performScrollTo().performClick()
+        compose.onNodeWithTag("option:Return to task:${task.id}").performClick()
         compose.onNodeWithText("Begin break").performClick()
         expect("Your scrolling break")
         val value = app.database.dao().currentBreak()!!
@@ -222,14 +367,14 @@ class BreakCycleTest {
         compose.onNodeWithText("Start task").performScrollTo().performClick()
         expect("How long do you want to focus?")
         assertNull(app.database.dao().currentFocus())
-        compose.onNodeWithText("Focus minutes (1–180)").performTextReplacement("10")
+        compose.onNodeWithText("10 m").performClick()
         compose.onNodeWithText("Begin focus").performClick()
         expect("A little focus")
         await { runBlocking { app.database.dao().currentFocus() != null } }
         val focus = app.database.dao().currentFocus()!!
         assertEquals(600_000L, focus.durationMillis); assertEquals(task.id, focus.taskId)
         assertEquals("FOCUSING", app.database.dao().breakSession(value.id)!!.phase)
-        await { !BreakTimerService.status.value.running }
+        await { BreakTimerService.status.value.running }
     }
 
     @Test(timeout = 120_000) fun realWindowExpiresOverAnotherAppSnoozesWithGoalAndStartsChosenFocus() = runBlocking<Unit> {
@@ -237,10 +382,9 @@ class BreakCycleTest {
         app.repository.saveTask(Task(title = "Different higher-priority task", priority = 2))
         val value = begin()
         scenario!!.onActivity { assertTrue(FloatingCompanionService.start(it)) }
-        await { FloatingCompanionService.status.value.visible }
-        assertTrue(FloatingCompanionService.status.value.message.contains("planned break"))
+        await { !FloatingCompanionService.status.value.visible && FloatingCompanionService.status.value.message.contains("Timer companion") }
         anotherApp()
-        await { BreakTimerService.status.value.visible && nativeText("Scrolling break") }
+        await { BreakTimerService.status.value.visible && nodes().any { it.contentDescription?.toString() == "Open break timer" } }
         nearExpiry(value.id)
         await { BreakTimerService.status.value.visible && nativeText("Your break is over") }
         await { !FloatingCompanionService.status.value.visible }
@@ -250,7 +394,7 @@ class BreakCycleTest {
         await { nativeText("Five more minutes") && nativeText(goal.title) }
         val snoozed = app.database.dao().currentBreak()!!
         assertEquals("RUNNING", snoozed.phase); assertTrue(app.breaks.remaining(snoozed) > 240_000)
-        await { nativeText("Scrolling break") && !nativeText("Five more minutes") }
+        await { nodes().any { it.contentDescription?.toString() == "Open break timer" } && !nativeText("Five more minutes") }
         assertFalse(FloatingCompanionService.status.value.visible)
         nearExpiry(value.id)
         await { BreakTimerService.status.value.visible && nativeText(goal.title) }
@@ -263,7 +407,7 @@ class BreakCycleTest {
         assertEquals(300_000L, app.database.dao().currentFocus()!!.durationMillis)
         assertEquals(task.id, app.database.dao().currentFocus()!!.taskId)
         assertEquals("FOCUSING", app.database.dao().breakSession(value.id)!!.phase)
-        await { !BreakTimerService.status.value.running && !BreakTimerService.status.value.visible }
+        await { BreakTimerService.status.value.running && !BreakTimerService.status.value.visible }
     }
 
     @Test(timeout = 120_000) fun deniedOverlayUsesRealNotificationActionsAndRejectsStaleSnooze() = runBlocking<Unit> {
