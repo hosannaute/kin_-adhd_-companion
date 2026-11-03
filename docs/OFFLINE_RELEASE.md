@@ -40,7 +40,7 @@ A lock screen hides the overlay; unlocking can restore it. Secure apps can suppr
 
 ## Continue development without this cloud session
 
-The latest complete source is on `feature/offline-release-and-alerts`, including the earlier release branches. The changes are published as stacked pull requests for review; merge them from oldest to newest when ready. No Plus subscription is needed to review or merge them on GitHub.
+The latest complete source is on `feature/offline-release-and-alerts`, including the earlier release branches. The final release PR targets `main` with all of that code so it can be reviewed and merged together. Earlier stacked PRs record the incremental work. No Plus subscription is needed to review or merge the final PR on GitHub.
 
 Open the repository in Android Studio, select JDK 17, install Android SDK 35/build-tools 35.0.0, and use the checked-in Gradle wrapper. README.md describes local and managed-cloud setup. A normal local setup needs no cloud credentials. Run:
 
@@ -51,6 +51,8 @@ Open the repository in Android Studio, select JDK 17, install Android SDK 35/bui
 ```
 
 The debug APK is app/build/outputs/apk/debug/app-debug.apk. The public download and checksum are in downloads/. GitHub Actions runs the unit/build job plus device suites on API 26 and 35; its annotations include completed test counts. VALIDATION.md identifies the exact tested revision. Documentation/APK publication commits leave that app/test/build source unchanged.
+
+GitHub Actions artifacts use the runner’s ephemeral debug key. The direct APK in `downloads/` uses the existing published certificate for in-place updates. A private signing-key backup is provided separately in the shared workspace, outside this public repository. Keep that archive private and preserve a copy before the workspace is retired. Its README explains isolated local signing with `ANDROID_USER_HOME`.
 
 The current APK uses the existing debug certificate for in-place updates. Future APK updates must keep the same signing certificate. Keep private signing material outside Git; a new production signing key requires a migration plan and a backup before replacing a differently signed install. A Play/store release still needs private production signing, store policy review, physical-device acceptance and broader accessibility checks. Do not publish signing keys in this public repository.
 
