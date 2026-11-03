@@ -3,11 +3,11 @@
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
-**Status: native Android 0.8 development build with offline backup/restore, selectable timer alerts, a persistent scrolling-break countdown, a break → reminder → focus cycle and native focus Picture-in-Picture.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
+**Status: native Android 0.8.1 development build with offline backup/restore, selectable timer alerts, a persistent scrolling-break countdown, a break → reminder → focus cycle and native focus Picture-in-Picture.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
 
 ## Download
 
-[Download KIN 0.8 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
+[Download KIN 0.8.1 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
 
 This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). The checked-in APK is built from this branch's app source; subsequent documentation-only commits do not change its code. It uses the existing signing certificate and explicit database migrations from schema 1/2 to 3 for in-place updates. Known missing features are listed below and in the roadmap.
 
@@ -110,6 +110,10 @@ WorkManager contributes normal `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, and `FOREGRO
 Reminders use deferrable WorkManager jobs, not exact alarms. Quiet-hour task reminders are skipped rather than deferred. This build provides one scheduled notification per occurrence with Start, Snooze 10 min and Options actions. Options includes breakdown, rescheduling and skip. Break reminders offer gentle/firm wording and optional snooze limits. Automatic reminder escalation is not implemented.
 
 ## Screenshots
+
+The timer-alert panel below was captured from the actual 0.8 UI on an Android 8 emulator. Its layout is unchanged in 0.8.1.
+
+<img src="docs/screenshots/v08/timer-alerts.png" alt="KIN timer alert mode and appearance settings" width="240">
 
 Earlier 0.7 APK captures from a disposable Android 8 emulator with synthetic sample data and the starting Egg companion. These are runtime screens, not the supplied concept reference.
 
