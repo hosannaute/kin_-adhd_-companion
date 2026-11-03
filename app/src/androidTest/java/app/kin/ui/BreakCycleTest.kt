@@ -190,8 +190,8 @@ class BreakCycleTest {
         tapIcon(); await { nativeText("Scrolling break") && nativeText("Start task") }
         // A real touch outside the window must collapse it.
         down = SystemClock.uptimeMillis()
-        motion(android.view.MotionEvent.ACTION_DOWN,rootBounds.right - 6f,rootBounds.bottom - 6f)
-        motion(android.view.MotionEvent.ACTION_UP,rootBounds.right - 6f,rootBounds.bottom - 6f)
+        motion(android.view.MotionEvent.ACTION_DOWN,rootBounds.right - 6f,rootBounds.exactCenterY())
+        motion(android.view.MotionEvent.ACTION_UP,rootBounds.right - 6f,rootBounds.exactCenterY())
         await { !BreakTimerService.status.value.expanded }
         app.stopService(Intent(app, BreakTimerService::class.java))
         await { !BreakTimerService.status.value.running }

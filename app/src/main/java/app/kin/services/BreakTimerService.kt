@@ -137,8 +137,6 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     @Suppress("DEPRECATION")
     private fun screen() = DisplayMetrics().also { windows.defaultDisplay.getRealMetrics(it) }
     private fun collapse() { expanded = false; acknowledgment = false; ackUntil = 0; layoutKey = ""; scope.launch { tick() } }
-    // This listener only observes ACTION_OUTSIDE. Compose owns clicks and their accessibility actions.
-    @android.annotation.SuppressLint("ClickableViewAccessibility")
     private fun show() {
         if (SystemClock.elapsedRealtime() < retryAfter) return
         val settings = pref ?: return
@@ -147,10 +145,16 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         val width = if (expanded) minOf(metrics.widthPixels - (16 * metrics.density).toInt(), (320 * metrics.density).toInt()) else icon
         val margin = (32 * metrics.density).toInt()
         val maxHeight = (metrics.heightPixels / metrics.density - 72).coerceAtLeast(180f)
-        if (root == null) root = FrameLayout(this).apply {
+        if (root == null) root = object : FrameLayout(this) {
+            // ViewGroup may discard ACTION_OUTSIDE before an OnTouchListener sees it.
+            // Observe it at dispatch; actual clicks remain with Compose and the other app.
+            override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+                if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) { if (expanded) collapse(); return false }
+                return super.dispatchTouchEvent(event)
+            }
+        }.apply {
             setViewTreeLifecycleOwner(this@BreakTimerService); setViewTreeSavedStateRegistryOwner(this@BreakTimerService)
             addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> constrain() }
-            setOnTouchListener { _, event -> if (event.action == MotionEvent.ACTION_OUTSIDE && expanded) collapse(); false }
             addView(ComposeView(this@BreakTimerService).apply {
                 setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
                 setContent { KinTheme(pref?.darkMode ?: settings.darkMode) {
