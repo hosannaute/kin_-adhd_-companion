@@ -1,5 +1,11 @@
 # Validation record
 
+## 0.7 persistent break and clean design
+
+- Candidate: persistent running/paused break control inside KIN and other ordinary apps, visible compact countdown, larger-font sizing, and a consistent visual refresh informed by public competitor screenshots.
+- The existing 48 unit tests pass locally; 57 device scenarios per API are defined, including tab-to-tab persistence/expiry and 200% font interaction. Final build, runtime screenshots, API 26/35 execution and APK publication are pending.
+- See [DESIGN_REVIEW.md](DESIGN_REVIEW.md) for sources, design choices and Android limits.
+
 ## 0.6 movable timer and quick choices
 
 - Tested app/test revision: [`5db27e2`](https://github.com/hosannaute/kin_-adhd_-companion/commit/5db27e2448b9144fd3009148a4de91f589c38b46). [CI run 41673995806](https://github.com/hosannaute/kin_-adhd_-companion/actions/runs/41673995806) completed successfully: build, API 26 and API 35 jobs all passed. **48 unit tests and 55 device scenarios per API passed, with 0 failures and 0 skips**, as recorded in check annotations. The publication follow-up changes only documentation and APK/checksum files; tested app/test/build source is unchanged.

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.*
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.kin.features.KinViewModel
 import app.kin.services.*
 import kotlinx.coroutines.flow.first
@@ -26,6 +27,8 @@ import kotlinx.coroutines.flow.first
 fun PermissionSetupScreen(vm: KinViewModel, onDone: () -> Unit) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val activeBreak by vm.activeBreak.collectAsStateWithLifecycle()
+    val activeFocus by vm.focus.collectAsStateWithLifecycle()
     var overlay by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var notifications by remember { mutableStateOf(Notifications.allowed(context)) }
     var battery by remember { mutableStateOf(context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)) }
@@ -75,7 +78,8 @@ fun PermissionSetupScreen(vm: KinViewModel, onDone: () -> Unit) {
             Button(onClick = {
                 if (OverlayPreviewService.start(context)) open(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
                 else notice = "Couldn't start the window test. Check the permission and try again."
-            }, modifier = Modifier.fillMaxWidth()) { Text("Test window over other apps") }
+            }, enabled = activeBreak == null && activeFocus == null, modifier = Modifier.fillMaxWidth()) { Text("Test window over other apps") }
+            if (activeBreak != null || activeFocus != null) Text("Finish the current timer before opening a sample window.", style = MaterialTheme.typography.bodySmall)
             Text("This opens your home screen, then shows a sample reminder. It does not start a break or change your tasks.", style = MaterialTheme.typography.bodySmall)
         }
         Text(if (overlay) "Ready for floating break reminders." else "Window permission is off. You can continue, but reminders will only appear inside KIN or in notifications.", fontWeight = FontWeight.Medium)

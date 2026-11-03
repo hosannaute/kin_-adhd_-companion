@@ -55,11 +55,14 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                     // Keep the NavHost installed while pinned so expanding returns to the same route.
                     Scaffold(modifier = if (compact.value) Modifier.size(0.dp).clearAndSetSemantics { } else Modifier.fillMaxSize(),
                         snackbarHost = { if (!compact.value) SnackbarHost(snackbar) }, bottomBar = {
-                        if (!compact.value) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                        if (!compact.value) NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
                             destinations.forEach { dest ->
                                 NavigationBarItem(selected = entry?.destination?.route == dest.route,
                                     onClick = { go(dest.route) }, icon = { Icon(dest.icon, dest.title) },
-                                    label = { Text(dest.title) })
+                                    label = { Text(dest.title) }, colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary,
+                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant))
                             }
                         }
                     }) { padding ->
