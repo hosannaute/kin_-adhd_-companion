@@ -60,25 +60,13 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Start virtual audio output for notification playback tests
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pulseaudio
-          pulseaudio --check || pulseaudio --start --exit-idle-time=-1
-          pactl load-module module-null-sink sink_name=kin_ci
-          pactl set-default-sink kin_ci
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
           avd-name: kin-ci
-          pre-emulator-launch-script: python3 scripts/configure-emulator-audio.py
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -audio pa
           script: |
-            kin_device_provisioned="$(adb shell settings get global device_provisioned)"
-            printf '::notice title=Emulator setup::device_provisioned before tests=%s\n' "$kin_device_provisioned"
-            adb shell settings put global device_provisioned 1
-            adb shell settings put secure user_setup_complete 1
+            bash scripts/prepare-ci-device.sh ${{ matrix.api-level }}
             ./gradlew --no-daemon connectedDebugAndroidTest
       - name: Report device test results
         if: always()
