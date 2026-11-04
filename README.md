@@ -1,34 +1,43 @@
 # KIN
 
-> **Latest app: [Download KIN 0.9.0 APK](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/tags/v0.9.0-debug/downloads/KIN-debug.apk)** · [Release notes](https://github.com/hosannaute/kin_-adhd_-companion/releases/tag/v0.9.0-debug) · [Latest source](https://github.com/hosannaute/kin_-adhd_-companion/tree/v0.9.0-debug)
+> **Latest app: [Download KIN 0.9.0 APK](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/tags/v0.9.0-debug/downloads/KIN-debug.apk)** · [Release notes](https://github.com/hosannaute/kin_-adhd_-companion/releases/tag/v0.9.0-debug) · [Release source](https://github.com/hosannaute/kin_-adhd_-companion/tree/v0.9.0-debug)
 
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
-**Main-branch source snapshot: native Android 0.2 development build with an optional floating companion and local app-time check-ins.** Build/test evidence is recorded in VALIDATION.md. Newer Android and physical-device acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
+**Status: native Android 0.9.0 development build with a refined interface, personal timer sounds, focus congratulations, offline backup/restore, selectable timer alerts, a persistent scrolling-break countdown, a break → reminder → focus cycle and native focus Picture-in-Picture.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
 
 ## Download
 
 [Download KIN 0.9.0 debug APK](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/tags/v0.9.0-debug/downloads/KIN-debug.apk) · Android 8.0 or later.
 
-The public APK and [checksum](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/tags/v0.9.0-debug/downloads/KIN-debug.apk.sha256) are published at tag v0.9.0-debug. Read [the 0.9.0 release notes](https://github.com/hosannaute/kin_-adhd_-companion/releases/tag/v0.9.0-debug). Install over the existing KIN app to retain local data. This is an early debug build. Release notes include validation results and the remaining Android 8 automatic app-usage check-in test limitation.
-
-The latest app source is available at [tag v0.9.0-debug](https://github.com/hosannaute/kin_-adhd_-companion/tree/v0.9.0-debug) and [PR #10](https://github.com/hosannaute/kin_-adhd_-companion/pull/10). The source on this main branch is still the older snapshot pending that review; the sections below describe that snapshot.
+This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). The checked-in APK is built from this branch's app source; subsequent documentation-only commits do not change its code. It uses the existing signing certificate and explicit database migrations from schema 1/2 to 3 for in-place updates. Known missing features are listed below and in the roadmap.
 
 ## Implemented in source
 
-- Seven-step onboarding: meet and name a companion, optional goals and first task, reminder preferences, and an explanation of optional notification access.
-- Home, Tasks, World, Chat, More, and a separate Focus screen with functioning navigation code. Interfaces are native components inspired by the supplied six-screen reference.
+- First-open permission guidance followed by direct entry to Home. Companion naming is optional; tasks and goals can be added when needed.
+- Four main tabs: Home, Tasks, Focus and Companion. World and chat live under Companion; Settings opens from the Home gear. Interfaces are native components inspired by the supplied six-screen reference.
 - Room-backed task creation, editing, deletion, completion, date/time rescheduling, ten-minute snoozing, category search, goal associations, priority, estimated duration, and per-task reminders. Today shows three pending priority tasks by default; additional tasks remain accessible. Overdue tasks stay in Today.
+- Daily/weekly/monthly recurring tasks, persistent actionable subtasks, native date/time pickers, and task-specific Start/Snooze/Options notifications. Completing or skipping creates one next future occurrence; skipped tasks award no XP. See [offline planner behavior](docs/OFFLINE_PLANNER.md).
 - Locally stored personal goals, motivations, achievements, and companion XP. Completing the same task, focus session, or goal cannot award XP twice. Deleting a goal unlinks its tasks without deleting them. Deleting a memory does not remove earned XP.
+- First-open permission setup, notification request, battery guidance and a real sample window over the home screen. The setup also appears once when upgrading from 0.5 and remains available from Home/Settings.
+- A shared, movable companion countdown for break and focus: the running/paused break stays visible inside KIN and over ordinary apps, with remaining time visible before tapping. Drag to either edge, tap for controls, tap outside to collapse, and restore the saved position after app switching/recovery. [Behavior and limits](docs/MOVABLE_TIMER.md).
+- A consistent ink/off-white/teal palette, compact Home tasks, an explicit floating-timer status/control, clearer selection lists and brief navigation transitions that respect Reduced motion. [Design review and public competitor references](docs/DESIGN_REVIEW.md).
+- Custom break/focus sounds from Android's phone-tone picker or audio files; private copies survive deletion of the originals. Natural focus completion offers Congratulations, Stop and Take a break without starting another timer automatically. [Personal sounds, finish flow and Tecno guidance](docs/PERSONAL_SOUNDS_AND_FINISH.md).
+- Preset durations, task/goal lists, quick scheduling choices, remembered recent choices and short onboarding reduce routine typing.
+- A separate planned-break timer with a chosen return task/goal, large companion prompt over other apps, goal-linked five-minute snoozing, a focus-duration picker, pause/stop controls and notification fallback. Completed focus offers another break. [Cycle behavior and Android limits](docs/BREAK_FOCUS_CYCLE.md).
 - Focus presets (5, 15, 25, 45 minutes), custom duration (1–180 minutes), pause/resume, task association, and saved completed/interrupted sessions. Monotonic time and a persisted boot count protect active countdown accuracy across process recreation and wall-clock changes. Active sessions are interrupted on reboot without awarding XP; paused sessions can be resumed. Finishing early awards no XP.
+- Native Android Picture-in-Picture for an active or paused focus session, with companion/task/countdown, System UI pause/resume and finish controls, expansion back to Focus, availability/settings handling, and coordination that hides an existing floating overlay. Dismissing PiP preserves the session. See [PiP behavior and limits](docs/PICTURE_IN_PICTURE.md).
 - An original Canvas-rendered creature with breathing, blinking, waving, sleeping, and celebration poses; six visible evolution stages. Reduced motion freezes animations. A lightweight painted-vector world gains a cottage and flowers with progression.
 - Offline guided chat with contextual templates, emotional shortcuts, conversation history, and honest disclosure that it is not AI or mental healthcare. “I can't start” offers small steps that can be edited and saved to a task, rest, and short focus sessions.
 - WorkManager task reminders and focus-completion work; optional notification permission; quiet hours; a global task-reminder pause; dark mode and companion naming in DataStore. Android may delay background notifications.
 - Optional draggable WindowManager companion with the same original creature renderer, expansion/collapse, quiet-hour and lock-screen hiding, saved position, and persistent Pause/Stop controls. Optional selected-app foreground-time reminders with explicit Usage access, configurable thresholds and snoozing; all processing is local. See [how to enable it and what it measures](docs/FLOATING_COMPANION.md).
-- No registration, ads, analytics, cloud provider, API keys, or network permission. Local Android backup is disabled. Uninstalling deletes data; there is no export yet.
+- Selectable sound + vibration, vibration-only or silent timer alerts, distinct original break/focus chimes, quiet-hour/DND handling, real test alerts, gentle/firm reminder wording and optional snooze lengths/limits.
+- Versioned backup/restore through Android's document picker, with validation, replacement confirmation, preserved rewards/history, stopped imported clocks and refreshed future reminders. Save a backup before uninstalling.
+- A one-minute timer-check guide for actual phones and a [complete offline handover](docs/OFFLINE_RELEASE.md).
+- No registration, ads, analytics, cloud provider, API keys, or network permission. Android automatic backup is disabled. File backups are saved only where you choose.
 
-Recurring tasks, advanced task reminders, additional world progression, and several other requirements remain unimplemented. Overlay and usage-monitoring behavior on newer Android/OEM phones still requires acceptance testing. Compilation and unit checks do not establish all Android lifecycle and device behavior.
+Automatic reminder escalation, additional world progression, and several other requirements remain unimplemented. Overlay and usage-monitoring behavior on newer Android/OEM phones still requires acceptance testing. Compilation and unit checks do not establish all Android lifecycle and device behavior.
 
 ## Technology and architecture
 
@@ -46,7 +55,7 @@ app/src/main/java/app/kin/
   ui/         Native screens, theme, original creature and landscape rendering
 ```
 
-Repositories own data mutations; the ViewModel exposes observable state. Room transactions guard rewards and session completion. The initial database is version 1 with schema export configured. Keep the generated schema under `app/schemas` after the first successful build; introduce explicit migrations when changing it. Destructive migration fallback is intentionally absent.
+Repositories own data mutations; the ViewModel exposes observable state. Room transactions guard rewards and session completion. The database is version 3, with exported schemas and explicit migrations from versions 1 and 2 under `app/schemas`. Add explicit migrations for future schema changes. Destructive migration fallback is intentionally absent.
 
 ## Build
 
@@ -81,31 +90,49 @@ For the managed Linux cloud environment, `scripts/install-cloud.sh` installs a c
 ./gradlew lintDebug
 ```
 
-Tests cover evolution boundaries, rewards, countdown math, snooze bounds, quiet hours, offline responses, actual Room persistence after reopening, concurrent exactly-once task completion, goal deletion, snoozing, and navigation across major screens. The suite now also tests app-time accounting, cooldowns, actual overlay attachment, quiet-hour hiding/resuming, notification stopping, permission revocation and permission-settings availability. Current counts and platform limits are recorded in VALIDATION.md. See [validation evidence](docs/VALIDATION.md) for device-test status and the manual checks still needed for background timers, notification denial, reboot, battery restrictions, large fonts, and accessibility.
+Tests cover evolution boundaries, rewards, countdown math, snooze bounds, quiet hours, offline responses, recurrence boundaries, actual Room persistence after reopening, concurrent exactly-once task completion, goal deletion, snoozing, schema migration, actionable steps, real notification actions, and navigation across major screens. The suite now also tests app-time accounting, cooldowns, actual overlay attachment, quiet-hour hiding/resuming, notification stopping, permission revocation and permission-settings availability. Current counts and platform limits are recorded in VALIDATION.md. See [validation evidence](docs/VALIDATION.md) for device-test status and the manual checks still needed for background timers, notification denial, reboot, battery restrictions, large fonts, and accessibility.
 
 ## GitHub Actions and APK download
 
-[The Android workflow](.github/workflows/android.yml) configures Java and the Android SDK, runs unit tests, builds a debug APK, and uploads `KIN-debug-apk`. A second job runs database/navigation instrumentation tests on an API 35 emulator. Test reports are uploaded separately. Jobs use read-only repository permissions and no private signing keys.
+[The Android workflow](.github/workflows/android.yml) configures Java and the Android SDK, runs unit tests, builds a debug APK, and uploads `KIN-debug-apk`. A hardware-accelerated matrix runs persistence, migration, navigation, notification and overlay instrumentation tests on API 26 and 35 emulators. Test reports are uploaded separately. Jobs use read-only repository permissions and no private signing keys.
 
-After a workflow succeeds, open the run under **Actions → Android debug APK** and download its APK artifact. You can also trigger the workflow manually. Remote workflow results have not been verified from this environment. The tested debug APK linked above is published directly in `downloads/`; Actions artifacts are separate.
+After a workflow succeeds, open the run under **Actions → Android debug APK** and download its APK artifact. You can also trigger the workflow manually. The tested debug APK linked above is published directly in `downloads/`; Actions artifacts are separate.
 
 ## Permissions
 
-- `POST_NOTIFICATIONS`: requested only in More when the user chooses to enable notifications. Denial leaves tasks, chat, progression, and the timer usable. System notification settings can be opened there too.
+- `POST_NOTIFICATIONS`: optional in first-open permission setup and Settings. Denial leaves tasks, chat, progression, and the timer usable; system notification settings remain available.
 - `RECEIVE_BOOT_COMPLETED`: used by the WorkManager dependency to restore scheduled work. KIN does not auto-launch an activity after reboot.
 - `SYSTEM_ALERT_WINDOW`: optional Settings permission for the user-started floating companion. Denial leaves core features usable.
 - `PACKAGE_USAGE_STATS`: optional Settings/AppOps access for app-time reminders, separately enabled after selecting apps. It does not identify scrolling or content types.
-- `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SPECIAL_USE`: the explicitly started companion service and its ongoing control notification. It does not restart automatically after reboot/process death.
+- `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SPECIAL_USE`: user-started companion/timer services and ongoing controls. The timer service supports Android process recovery; reopening KIN also recovers an active saved timer. Force-stop and vendor restrictions can still suspend background execution.
+- `VIBRATE`: normal Android permission for optional timer-alert vibration.
 - No accessibility service, exact alarm, microphone, Internet, storage, or location permission is requested by KIN.
 
 WorkManager contributes normal `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, and `FOREGROUND_SERVICE` permissions plus its internal non-exported receiver permission in the merged manifest. The optional floating mode starts its declared foreground service. KIN does not acquire its own wake lock.
 
-Reminders use deferrable WorkManager jobs, not exact alarms. Quiet-hour task reminders are skipped rather than deferred. This build provides one scheduled notification per task, with snooze from the task editor; notification action buttons, firm mode, and reminder escalation are not implemented.
+Reminders use deferrable WorkManager jobs, not exact alarms. Quiet-hour task reminders are skipped rather than deferred. This build provides one scheduled notification per occurrence with Start, Snooze 10 min and Options actions. Options includes breakdown, rescheduling and skip. Break reminders offer gentle/firm wording and optional snooze limits. Automatic reminder escalation is not implemented.
 
 ## Screenshots
 
-No runtime screenshots are included because no app screenshots were captured during the automated device runs. After building, launch on a phone/emulator, finish onboarding, add your own sample tasks, and capture Home, Tasks, Chat, Focus, World, and More using Android Studio's device screenshot tool. Do not use the supplied reference as an app screenshot.
+0.9 runtime previews on a narrow Android 8 emulator with synthetic data. Android supplies the system bars; KIN uses the same native interface on Android 15.
+
+| Home and floating control | Phone/file sound options | Focus completion |
+| --- | --- | --- |
+| <img src="docs/screenshots/v09/home.png" alt="KIN 0.9 Home and clear floating timer control" width="220"> | <img src="docs/screenshots/v09/sound-choices.png" alt="KIN phone sounds and audio file choices" width="220"> | <img src="docs/screenshots/v09/focus-complete.png" alt="Congratulations with Take a break and Stop" width="220"> |
+
+
+The timer-alert panel below was captured from the actual 0.8 UI on an Android 8 emulator. Its layout is unchanged in 0.8.1.
+
+<img src="docs/screenshots/v08/timer-alerts.png" alt="KIN timer alert mode and appearance settings" width="240">
+
+Earlier 0.7 APK captures from a disposable Android 8 emulator with synthetic sample data and the starting Egg companion. These are runtime screens, not the supplied concept reference.
+
+| Home | Active break | Floating countdown |
+| --- | --- | --- |
+| <img src="docs/screenshots/v07/home.png" alt="KIN Home with clear break and focus actions" width="220"> | <img src="docs/screenshots/v07/break.png" alt="Active scrolling break inside KIN" width="220"> | <img src="docs/screenshots/v07/outside.png" alt="Break countdown above the Android home screen" width="220"> |
+
+Cross-app interaction, expiry and larger-font behavior are covered separately in the [validation record](docs/VALIDATION.md).
 
 ## Remaining work
 
-See [ROADMAP.md](docs/ROADMAP.md) for honest acceptance status, including newer-device overlay/usage acceptance, production artwork, advanced reminders, recurring tasks, more world unlocks, additional creature motions, accessibility/device validation, and release preparation. This early version is not a complete implementation of the master specification.
+See [ROADMAP.md](docs/ROADMAP.md) for honest acceptance status, including newer-device overlay/usage acceptance, production artwork, reminder escalation, more world unlocks, additional creature motions, accessibility/device validation, and release preparation. This early version is not a complete implementation of the master specification.

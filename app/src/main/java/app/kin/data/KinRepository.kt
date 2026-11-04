@@ -6,8 +6,14 @@ import android.provider.Settings
 import androidx.room.withTransaction
 import app.kin.domain.*
 import app.kin.services.Scheduler
+import app.kin.services.TimerAlerts
+import app.kin.KinApplication
+import java.time.*
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
-class KinRepository(private val context: Context, private val db: KinDatabase, private val scheduler: Scheduler) {
+class KinRepository(private val context: Context, private val db: KinDatabase, private val scheduler: Scheduler,
+                    private val nowMillis: () -> Long = { System.currentTimeMillis() }) {
     val dao = db.dao()
     private val conversation = CompanionConversation()
     // A process cannot survive a reboot, so avoid a settings-provider IPC on every timer tick.
@@ -16,11 +22,25 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
 
     suspend fun saveTask(value: Task) {
         require(value.title.isNotBlank()) { "Give this adventure a name." }
-        val clean = value.copy(title = value.title.trim().take(200), minutes = value.minutes.coerceIn(1, 1440))
+        val rule = RepeatRule.valueOf(value.repeatRule)
+        val zone = value.repeatZone.takeIf { it.isNotBlank() }?.let(ZoneId::of) ?: ZoneId.systemDefault()
+        val local = Instant.ofEpochMilli(value.scheduledAt).atZone(zone)
+        val time = value.repeatTime.takeIf { it.isNotBlank() }?.let(LocalTime::parse) ?: local.toLocalTime()
+        val clean = value.copy(title = value.title.trim().take(200), minutes = value.minutes.coerceIn(1, 1440),
+            repeatZone = if (rule == RepeatRule.NONE) "" else zone.id,
+            repeatTime = if (rule == RepeatRule.NONE) "" else time.toString())
         val task = db.withTransaction {
-            if (value.id == 0L) clean.copy(id = dao.insertTask(clean)) else {
+            if (value.id == 0L) {
+                val initial = clean.copy(repeatAnchorAt = clean.scheduledAt, repeatAnchorDay = local.dayOfMonth)
+                initial.copy(id = dao.insertTask(initial))
+            } else {
                 val existing = dao.task(value.id) ?: error("This task was deleted.")
+                val reanchor = existing.repeatRule != clean.repeatRule || existing.scheduledAt != clean.scheduledAt ||
+                    existing.repeatZone != clean.repeatZone || existing.repeatTime != clean.repeatTime || existing.repeatAnchorAt == 0L
                 clean.copy(completed = existing.completed, rewarded = existing.rewarded,
+                    skipped = existing.skipped, nextOccurrenceId = existing.nextOccurrenceId,
+                    repeatAnchorAt = if (reanchor) clean.scheduledAt else existing.repeatAnchorAt,
+                    repeatAnchorDay = if (reanchor) local.dayOfMonth else existing.repeatAnchorDay,
                     snoozeCount = existing.snoozeCount).also { dao.updateTask(it) }
             }
         }
@@ -28,26 +48,49 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
     }
 
     suspend fun completeTask(id: Long) {
-        db.withTransaction {
-            val task = dao.task(id) ?: return@withTransaction
-            if (!task.completed) {
-                dao.updateTask(task.copy(completed = true, rewarded = true))
+        closeTask(id, skipped = false)
+    }
+    suspend fun skipTask(id: Long) { closeTask(id, skipped = true) }
+    private suspend fun closeTask(id: Long, skipped: Boolean) {
+        val next = db.withTransaction {
+            val task = dao.task(id) ?: return@withTransaction null
+            if (task.resolved) return@withTransaction null
+            val following = createNextOccurrence(task)
+            dao.updateTask(task.copy(completed = !skipped, skipped = skipped,
+                rewarded = task.rewarded || !skipped, nextOccurrenceId = following?.id))
+            if (!skipped) {
                 if (!task.rewarded) award(Rewards.task(task.minutes))
                 dao.insertAchievement(Achievement("task:$id", "Completed ${task.title}"))
             }
+            following
         }
         scheduler.cancelTask(id)
+        next?.let(scheduler::task)
+    }
+    private suspend fun createNextOccurrence(task: Task): Task? {
+        val rule = RepeatRule.valueOf(task.repeatRule)
+        if (rule == RepeatRule.NONE || task.nextOccurrenceId != null) return null
+        val zone = task.repeatZone.takeIf { it.isNotBlank() }?.let(ZoneId::of) ?: ZoneId.systemDefault()
+        val time = task.repeatTime.takeIf { it.isNotBlank() }?.let(LocalTime::parse)
+            ?: Instant.ofEpochMilli(task.scheduledAt).atZone(zone).toLocalTime()
+        val nextAt = Recurrence.next(task.repeatAnchorAt.takeIf { it > 0 } ?: task.scheduledAt,
+            maxOf(nowMillis(), task.scheduledAt), rule, task.repeatAnchorDay, time, zone) ?: return null
+        val value = task.copy(id = 0, scheduledAt = nextAt, completed = false, skipped = false,
+            rewarded = false, snoozeCount = 0, nextOccurrenceId = null)
+        val next = value.copy(id = dao.insertTask(value))
+        dao.steps(task.id).forEach { dao.insertStep(it.copy(id = 0, taskId = next.id, completed = false)) }
+        return next
     }
 
     suspend fun deleteTask(id: Long) { dao.deleteTask(id); scheduler.cancelTask(id) }
     suspend fun snooze(id: Long, minutes: Int = 10) {
         val task = db.withTransaction {
             val old = dao.task(id) ?: return@withTransaction null
-            if (old.completed) return@withTransaction null
-            old.copy(scheduledAt = ReminderPolicy.snooze(System.currentTimeMillis(), minutes),
+            if (old.resolved) return@withTransaction null
+            old.copy(scheduledAt = ReminderPolicy.snooze(nowMillis(), minutes),
                 snoozeCount = old.snoozeCount + 1).also { dao.updateTask(it) }
         }
-        task?.let(scheduler::task)
+        if (task != null) scheduler.task(task) else scheduler.cancelTask(id)
     }
     suspend fun rescheduleAll() { dao.allTasks().forEach(scheduler::task) }
 
@@ -78,13 +121,19 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
 
     suspend fun startFocus(minutes: Int, task: Task?): Long {
         val id = db.withTransaction {
-            require(dao.currentFocus() == null) { "Finish or stop the current session first." }
-            val duration = minutes.coerceIn(1, 180) * 60_000L
-            dao.insertSession(FocusSession(taskId = task?.id, taskTitle = task?.title ?: "A little time for you",
-                durationMillis = duration, remainingMillis = duration, startedElapsed = SystemClock.elapsedRealtime(), bootCount = boot()))
+            require(dao.currentBreak() == null) { "Use Start task on your break timer, or stop the break first." }
+            insertFocus(minutes, task)
         }
         scheduler.focus(id, minutes.coerceIn(1, 180) * 60_000L)
         return id
+    }
+    /** Caller holds the Room transaction, including a break → focus transition when applicable. */
+    internal suspend fun insertFocus(minutes: Int, task: Task?): Long {
+        require(dao.currentFocus() == null) { "Finish or stop the current session first." }
+        if (task != null) require(dao.task(task.id)?.resolved == false) { "This adventure is already finished or was deleted." }
+        val duration = minutes.coerceIn(1, 180) * 60_000L
+        return dao.insertSession(FocusSession(taskId = task?.id, taskTitle = task?.title ?: "A little time for you",
+            durationMillis = duration, remainingMillis = duration, startedElapsed = SystemClock.elapsedRealtime(), bootCount = boot()))
     }
 
     suspend fun pauseFocus(id: Long) {
@@ -110,24 +159,44 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
         refreshFocus(id)
         db.withTransaction {
             val session = dao.session(id) ?: return@withTransaction
-            if (!session.ended) dao.updateSession(session.copy(ended = true, running = false, remainingMillis = remaining(session)))
+            if (!session.ended) {
+                dao.updateSession(session.copy(ended = true, running = false, remainingMillis = remaining(session)))
+                finishBreakCycle(id, completed = false)
+            }
         }
         scheduler.cancelFocus(id)
     }
 
     /** Exactly-once completion under a DB transaction. Reboot interrupts, rather than rewards, an active session. */
-    suspend fun refreshFocus(id: Long): Boolean = db.withTransaction {
-        val session = dao.session(id) ?: return@withTransaction false
-        if (session.ended || !session.running) return@withTransaction false
-        if (session.bootCount != boot()) {
-            dao.updateSession(session.copy(ended = true, running = false))
-            return@withTransaction false
+    // The active-focus flow changes at commit and can cancel the caller's collectLatest.
+    // Finish the clock transition and its one completion delivery together.
+    suspend fun refreshFocus(id: Long): Boolean = withContext(NonCancellable) {
+        val completed = db.withTransaction {
+            val session = dao.session(id) ?: return@withTransaction null
+            if (session.ended || !session.running) return@withTransaction null
+            if (session.bootCount != boot()) {
+                dao.updateSession(session.copy(ended = true, running = false))
+                finishBreakCycle(id, completed = false)
+                return@withTransaction null
+            }
+            if (remaining(session) > 0) return@withTransaction null
+            dao.updateSession(session.copy(ended = true, completed = true, running = false, remainingMillis = 0))
+            finishBreakCycle(id, completed = true)
+            award(Rewards.FOCUS)
+            dao.insertAchievement(Achievement("focus:$id", "Completed a ${session.durationMillis / 60_000} minute focus session"))
+            session.copy(ended = true, completed = true, running = false, remainingMillis = 0)
         }
-        if (remaining(session) > 0) return@withTransaction false
-        dao.updateSession(session.copy(ended = true, completed = true, running = false, remainingMillis = 0))
-        award(Rewards.FOCUS)
-        dao.insertAchievement(Achievement("focus:$id", "Completed a ${session.durationMillis / 60_000} minute focus session"))
-        true
+        if (completed != null) {
+            val app = context.applicationContext as KinApplication
+            if (db === app.database) try { app.completions.register(completed.id) } catch (_: java.io.IOException) { }
+            TimerAlerts.focus(context, completed)
+        }
+        completed != null
+    }
+    private suspend fun finishBreakCycle(focusId: Long, completed: Boolean) {
+        dao.breakForFocus(focusId)?.let {
+            dao.updateBreak(it.copy(phase = if (completed) "COMPLETED" else "STOPPED", revision = it.revision + 1))
+        }
     }
 
     suspend fun send(message: String, context: ConversationContext) {
@@ -139,10 +208,30 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
         }
     }
 
-    suspend fun breakDown(task: Task, steps: List<String>) = db.withTransaction {
-        // Keep the original task; accepted steps are explicitly stored in its editable description.
-        val old = dao.task(task.id) ?: return@withTransaction
-        val plan = steps.filter { it.isNotBlank() }.joinToString("\n") { "• ${it.trim()}" }
-        dao.updateTask(old.copy(description = listOf(old.description, plan).filter { it.isNotBlank() }.joinToString("\n\n")))
+    suspend fun breakDown(task: Task, steps: List<String>) = addSteps(task.id, steps, distinct = true)
+    suspend fun addSteps(taskId: Long, titles: List<String>, distinct: Boolean = false) = db.withTransaction {
+        val parent = dao.task(taskId) ?: error("This task was deleted.")
+        require(!parent.resolved) { "This adventure is already finished." }
+        val existing = dao.steps(taskId)
+        val known = existing.map { it.title.lowercase() }.toMutableSet()
+        val clean = titles.map { it.trim().take(300) }.filter { it.isNotBlank() }
+            .filter { !distinct || known.add(it.lowercase()) }
+        require(existing.size + clean.size <= 100) { "Keep each adventure to 100 small steps or fewer." }
+        val start = (existing.maxOfOrNull { it.position } ?: -1) + 1
+        clean.forEachIndexed { index, title -> dao.insertStep(Subtask(taskId = taskId, title = title, position = start + index)) }
+    }
+    suspend fun updateStep(id: Long, title: String? = null, completed: Boolean? = null) = db.withTransaction {
+        val step = dao.step(id) ?: return@withTransaction
+        val parent = dao.task(step.taskId) ?: return@withTransaction
+        require(!parent.resolved) { "This adventure is already finished." }
+        val cleanTitle = title?.trim()?.take(300) ?: step.title
+        require(cleanTitle.isNotBlank()) { "Give the step a name." }
+        dao.updateStep(step.copy(title = cleanTitle, completed = completed ?: step.completed))
+    }
+    suspend fun deleteStep(id: Long) = db.withTransaction {
+        val step = dao.step(id) ?: return@withTransaction
+        val parent = dao.task(step.taskId) ?: return@withTransaction
+        require(!parent.resolved) { "This adventure is already finished." }
+        dao.deleteStep(id)
     }
 }

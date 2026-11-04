@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <provider android:name="app.kin.services.SoundFixtureProvider" android:authorities="app.kin.companion.test.audio" android:exported="true" />
         <activity android:name="app.kin.services.UsageFixtureActivity"
             android:exported="true" android:label="KIN usage test app"
             android:theme="@android:style/Theme.Material.Light.NoActionBar">

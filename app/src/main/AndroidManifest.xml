@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -8,6 +9,8 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <queries>
+        <!-- Legacy Android notification playback runs in this system package. -->
+        <package android:name="com.android.systemui" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
@@ -16,15 +19,33 @@
     <application android:name=".KinApplication" android:allowBackup="false" android:fullBackupContent="@xml/backup_rules" android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="KIN" android:icon="@drawable/ic_kin" android:supportsRtl="true"
         android:theme="@style/Theme.Kin">
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.sounds" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/timer_sound_paths" />
+        </provider>
+        <receiver android:name=".services.FocusCompletionReceiver" android:exported="false" />
+        <service android:name=".services.OverlayPreviewService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Explicit user-requested fifteen-second companion window permission test with a foreground notification and automatic stop" />
+        </service>
+        <service android:name=".services.BreakTimerService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started break and focus countdowns with persistent pause/stop controls and a movable companion timer icon prompting a return to a chosen task" />
+        </service>
         <service android:name=".services.FloatingCompanionService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-started visible floating productivity companion with optional local selected-app usage reminders and persistent pause/stop controls" />
         </service>
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".MainActivity" android:exported="true" android:supportsPictureInPicture="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".ReminderActivity" android:exported="false" android:supportsPictureInPicture="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation" />
+        <receiver android:name=".services.ReminderActionReceiver" android:exported="false" />
+        <receiver android:name=".services.FocusTimerActionReceiver" android:exported="false" />
+        <receiver android:name=".services.BreakActionReceiver" android:exported="false" />
     </application>
 </manifest>

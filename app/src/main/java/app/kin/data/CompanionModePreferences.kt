@@ -31,4 +31,8 @@ class CompanionModePreferences(context: Context) {
     } }
     suspend fun threshold(minutes: Int) { store.edit { it[threshold] = minutes.coerceIn(1,180) } }
     suspend fun position(left: Int, top: Int) { store.edit { it[x] = left; it[y] = top } }
+    suspend fun restore(value: CompanionModeOptions) { store.edit {
+        it[monitor] = false; it[packages] = value.selectedApps; it[threshold] = value.thresholdMinutes
+        it[x] = value.x; it[y] = value.y
+    } }
 }
