@@ -10,7 +10,7 @@ case "$kin_ci_api" in
     # Android 8 initializes a sticky notification-effects disable flag on first
     # boot before provisioning. A later boot reads the completed setup state.
     # See NotificationManagerService.onStart in android-8.0.0_r1, lines 1175–1180.
-    kin_ci_effects_before="$(adb shell dumpsys notification | python3 -c 'import sys; print(next((s.strip() for s in sys.stdin if "mDisableNotificationEffects=" in s), "not reported"))')"
+    kin_ci_effects_before="$(adb shell dumpsys notification | python3 -c 'import sys; lines=sys.stdin.read().splitlines(); print(next((s.strip() for s in lines if "mDisableNotificationEffects=" in s), "not reported"))')"
     printf '::notice title=Legacy notification effects::before reboot: %s\n' "$kin_ci_effects_before"
     adb reboot
     timeout 60s adb wait-for-device
@@ -21,7 +21,7 @@ case "$kin_ci_api" in
       sleep 1
     done
     [[ "$kin_ci_booted" == 1 ]] || { printf 'Emulator did not finish rebooting\n' >&2; exit 1; }
-    kin_ci_effects_after="$(adb shell dumpsys notification | python3 -c 'import sys; print(next((s.strip() for s in sys.stdin if "mDisableNotificationEffects=" in s), "not reported"))')"
+    kin_ci_effects_after="$(adb shell dumpsys notification | python3 -c 'import sys; lines=sys.stdin.read().splitlines(); print(next((s.strip() for s in lines if "mDisableNotificationEffects=" in s), "not reported"))')"
     printf '::notice title=Legacy notification effects::after reboot: %s\n' "$kin_ci_effects_after"
     ;;
 esac
