@@ -1,6 +1,7 @@
 package app.kin.services
 
 import android.app.*
+import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.pm.ApplicationInfo
 import android.net.Uri
@@ -50,6 +51,9 @@ object TimerAlerts {
         return id
     }
     /** Android 8/8.1 do not grant channel-sound URIs to their separate ringtone player. */
+    // This optional framework resource identifies an OEM system component, not a
+    // shrinkable app resource. Android has no public resource ID for it.
+    @SuppressLint("DiscouragedApi")
     private fun grantSoundPlayer(context: Context, uri: Uri) {
         if (uri.scheme != "content" || uri.authority != "${context.packageName}.sounds") return
         val configured = runCatching {

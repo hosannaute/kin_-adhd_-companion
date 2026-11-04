@@ -7,6 +7,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import app.kin.services.TimerAlertKind
@@ -112,7 +113,7 @@ class TimerSounds(private val context: Context) {
         directory.listFiles()?.filter { !it.name.startsWith("import-") }?.forEach { file ->
             val uri = FileProvider.getUriForFile(context,"${context.packageName}.sounds",file).toString()
             if (uri !in keep) {
-                context.revokeUriPermission(Uri.parse(uri),android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                context.revokeUriPermission(uri.toUri(),android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 file.delete()
             }
         }
