@@ -58,3 +58,7 @@ The supplied KIN master specification and six-screen image guide the project. Th
 | Actions produces debug APK | Build job succeeded and uploads APK artifacts; current full check status is linked in VALIDATION.md |
 
 There is no release-completion claim. Complete modern-device and battery acceptance before treating background services as production-ready.
+
+## Current verification follow-up
+
+The 0.9 Android 15 suite passes all 86 scenarios. Android 8 passes 85, including every new sound/completion case, but its automatic selected-app usage check-in test times out after 180 seconds even on an unchanged retry. Investigate that legacy usage-event/check-in path; the planned scrolling-break timer and native focus PiP cases pass. Full details and exact CI evidence are in [VALIDATION.md](VALIDATION.md).
