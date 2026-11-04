@@ -87,7 +87,7 @@ fun BreakSetupDialog(vm: KinViewModel, initialTaskId: Long? = null, onDismiss: (
             ChoiceList("Personal goal", goals.firstOrNull { it.id == goalId }?.title ?: "Use just my task",
                 listOf("0" to "Use just my task") + goals.filter { !it.achieved }.map { it.id.toString() to it.title }) { goalPicked = true; goalId = it.toLong().takeIf { id -> id > 0 } }
             BreakPermissions()
-            Text("A small timer stays at the screen edge, even inside KIN. Tap it for controls. At zero, a large reminder appears, including during quiet hours. Notification sounds stay quiet.")
+            Text("Your timer stays at the screen edge. Tap for controls. At zero, a large reminder appears and your chosen alert plays. Quiet hours and phone sound settings apply.")
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { TextButton(enabled = !saving && taskId != null && minutes.toIntOrNull() in 1..180, onClick = {
