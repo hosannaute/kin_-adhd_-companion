@@ -111,7 +111,10 @@ class TimerSounds(private val context: Context) {
         manager.activeNotifications.forEach { manager.getNotificationChannel(it.notification.channelId)?.sound?.toString()?.let(keep::add) }
         directory.listFiles()?.filter { !it.name.startsWith("import-") }?.forEach { file ->
             val uri = FileProvider.getUriForFile(context,"${context.packageName}.sounds",file).toString()
-            if (uri !in keep) file.delete()
+            if (uri !in keep) {
+                context.revokeUriPermission(Uri.parse(uri),android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                file.delete()
+            }
         }
     }
 }

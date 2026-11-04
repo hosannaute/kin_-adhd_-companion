@@ -3,6 +3,7 @@ package app.kin.ui
 import android.app.NotificationManager
 import android.content.Intent
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
@@ -70,7 +71,7 @@ class PersonalFinishUiTest {
     private fun screenshot(name: String) {
         if (InstrumentationRegistry.getArguments().getString("captureKinUi") != "true") return
         compose.waitForIdle()
-        val bitmap = automation.takeScreenshot() ?: error("No screenshot")
+        val bitmap = automation.takeScreenshot() ?: compose.onAllNodes(isRoot()).onLast().captureToImage().asAndroidBitmap()
         File(app.filesDir,"$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
         bitmap.recycle()
     }
@@ -117,7 +118,8 @@ class PersonalFinishUiTest {
         screenshot("sound-choices")
         compose.onNodeWithText("No sound").performClick()
         compose.waitUntil(15_000) { runBlocking { app.sounds.flow.first().breakEnd.silent } }
-        scenario!!.recreate();expect("Make room for you")
+        scenario!!.recreate()
+        compose.waitUntil(60_000) { compose.onAllNodesWithTag("settings_screen").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
         compose.onNodeWithTag("settings_screen").performScrollToNode(hasText("No sound"))
         compose.onNodeWithText("No sound").assertIsDisplayed()
         screenshot("timer-sounds")

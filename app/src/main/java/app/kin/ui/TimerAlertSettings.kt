@@ -49,7 +49,7 @@ fun TimerAlertSettings(vm: KinViewModel, pref: UserPreferences, notificationsEna
     }
     SoftCard {
         Text("Timer alerts", style = MaterialTheme.typography.titleMedium)
-        Text("Make the moment yours. The countdown stays silent.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Choose a sound for each timer. The countdown stays silent.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         ChoiceList("Alert mode",pref.alertMode.label,AlertMode.entries.map { it.name to it.label }) {
             vm.action { vm.app.preferences.setAlertMode(AlertMode.valueOf(it)) }
         }

@@ -1,6 +1,9 @@
 package app.kin.services
 
 import android.app.*
+import android.content.ComponentName
+import android.content.pm.ApplicationInfo
+import android.net.Uri
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -43,7 +46,23 @@ object TimerAlerts {
                 setShowBadge(false)
             })
         }
+        manager.getNotificationChannel(id)?.sound?.let { grantSoundPlayer(context,it) }
         return id
+    }
+    /** Android 8/8.1 do not grant channel-sound URIs to their separate ringtone player. */
+    private fun grantSoundPlayer(context: Context, uri: Uri) {
+        if (uri.scheme != "content" || uri.authority != "${context.packageName}.sounds") return
+        val configured = runCatching {
+            val resource = context.resources.getIdentifier("config_systemUIServiceComponent","string","android")
+            if (resource == 0) null else ComponentName.unflattenFromString(context.getString(resource))?.packageName
+        }.getOrNull()
+        (listOfNotNull(configured) + "com.android.systemui").distinct().forEach { name ->
+            runCatching {
+                val info = context.packageManager.getApplicationInfo(name,0)
+                if (info.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0)
+                    context.grantUriPermission(name,uri,Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }
     }
     suspend fun builder(context: Context, kind: TimerAlertKind, pref: UserPreferences): NotificationCompat.Builder {
         val sound = (context.applicationContext as KinApplication).sounds.flow.first().forKind(kind)

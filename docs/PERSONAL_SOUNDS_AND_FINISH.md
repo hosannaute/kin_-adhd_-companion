@@ -21,7 +21,7 @@ KIN validates and copies a selected clip into its private storage. Moving or del
 
 **Test break alert** and **Test focus alert** post real notifications through the same channels as timer expiry. Android notification permission, notification volume, quiet hours, channel edits and Do Not Disturb apply. KIN does not force the volume, bypass silence or repeatedly play the countdown. Allow notifications, select Sound + vibration and turn off quiet hours temporarily when testing an audible alert.
 
-Audio files and sound selections are phone-local and excluded from portable JSON backups. Choose them again after moving to a different phone or reinstalling. Restoring a task backup on the same installation keeps that phone's sound choices. No Internet or broad storage/media permission is added. Only the private `timer_sounds` subdirectory is exposed through a non-exported, URI-granting FileProvider for Android notification playback.
+Audio files and sound selections are phone-local and excluded from portable JSON backups. Choose them again after moving to a different phone or reinstalling. Restoring a task backup on the same installation keeps that phone's sound choices. No Internet or broad storage/media permission is added. Only the private `timer_sounds` subdirectory is exposed through a non-exported, URI-granting FileProvider for Android notification playback. KIN grants read access for the selected URI to the verified system sound-player package, including legacy Android 8/8.1; unused file grants are revoked during cleanup.
 
 ## Finish focus
 

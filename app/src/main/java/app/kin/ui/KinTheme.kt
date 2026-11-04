@@ -44,14 +44,20 @@ fun KinTheme(dark: Boolean, content: @Composable () -> Unit) {
         onSurfaceVariant = Color(0xFFB7C9C7), surfaceVariant = Color(0xFF27383D),
         primaryContainer = Color(0xFF24483F), onPrimaryContainer = Color(0xFFC8F2E7),
         secondaryContainer = Color(0xFF293D44), onSecondaryContainer = Color(0xFFD2E6EC),
-        outline = Color(0xFF8BA29F), outlineVariant = Color(0xFF35484B))
+        outline = Color(0xFF8BA29F), outlineVariant = Color(0xFF35484B),
+        surfaceTint = Color(0xFF8CD6C7), surfaceDim = Color(0xFF101B20), surfaceBright = Color(0xFF304247),
+        surfaceContainerLowest = Color(0xFF0B1519), surfaceContainerLow = Color(0xFF162329),
+        surfaceContainer = Color(0xFF1A282D), surfaceContainerHigh = Color(0xFF24343A), surfaceContainerHighest = Color(0xFF2D4046))
     else lightColorScheme(
         primary = Color(0xFF226A5B), onPrimary = Color.White, secondary = Color(0xFF446572),
         background = Cream, onBackground = Ink, surface = Color.White, onSurface = Ink,
         surfaceVariant = Color(0xFFEBF0EE), onSurfaceVariant = Color(0xFF50645F),
         primaryContainer = Color(0xFFDFEDE5), onPrimaryContainer = Color(0xFF22483D),
         secondaryContainer = Color(0xFFE4EDF0), onSecondaryContainer = Color(0xFF294650),
-        outline = Color(0xFF768981), outlineVariant = Color(0xFFDCE5DF))
+        outline = Color(0xFF768981), outlineVariant = Color(0xFFDCE5DF),
+        surfaceTint = Color(0xFF226A5B), surfaceDim = Color(0xFFDCE5DF), surfaceBright = Color(0xFFFAFCFA),
+        surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFF1F5F2),
+        surfaceContainer = Color(0xFFEBF0ED), surfaceContainerHigh = Color(0xFFE5ECE7), surfaceContainerHighest = Color(0xFFDFE7E2))
     val view = LocalView.current
     SideEffect {
         (view.context as? Activity)?.window?.let { window ->
