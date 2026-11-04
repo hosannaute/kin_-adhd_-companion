@@ -114,6 +114,20 @@ class TimerAlertsTest {
         val early=app.repository.startFocus(25,task);app.repository.stopFocus(early)
         assertTrue(manager.activeNotifications.none { it.tag=="kin.focus.$early" })
     }
+    @Test fun cancelledUiCallbackStillSavesAndDeliversNaturalCompletionExactlyOnce()=runBlocking<Unit> {
+        val xp=dao.companion().first()?.xp ?: 0
+        val id=app.repository.startFocus(1,dao.allTasks().single())
+        dao.updateSession(dao.session(id)!!.copy(remainingMillis=1,startedElapsed=SystemClock.elapsedRealtime()-100))
+        launch(start=CoroutineStart.UNDISPATCHED) {
+            cancel("The timer screen moved on")
+            app.repository.refreshFocus(id)
+        }.join()
+        assertTrue(dao.session(id)!!.completed)
+        assertEquals(id,app.completions.flow.first())
+        await { manager.activeNotifications.any { it.tag=="kin.focus.$id" } }
+        assertFalse(app.repository.refreshFocus(id))
+        assertEquals(xp+15,dao.companion().first()!!.xp)
+    }
     @Test fun customSnoozeLengthAndLimitApplyToActualNotificationActions()=runBlocking<Unit> {
         app.preferences.save(app.preferences.flow.first().copy(snoozeMinutes=10,snoozeLimit=1))
         val value=app.breaks.begin(dao.allTasks().single().id,null,1)

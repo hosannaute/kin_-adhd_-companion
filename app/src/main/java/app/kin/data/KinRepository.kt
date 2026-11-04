@@ -9,6 +9,8 @@ import app.kin.services.Scheduler
 import app.kin.services.TimerAlerts
 import app.kin.KinApplication
 import java.time.*
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 class KinRepository(private val context: Context, private val db: KinDatabase, private val scheduler: Scheduler,
                     private val nowMillis: () -> Long = { System.currentTimeMillis() }) {
@@ -166,7 +168,9 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
     }
 
     /** Exactly-once completion under a DB transaction. Reboot interrupts, rather than rewards, an active session. */
-    suspend fun refreshFocus(id: Long): Boolean {
+    // The active-focus flow changes at commit and can cancel the caller's collectLatest.
+    // Finish the clock transition and its one completion delivery together.
+    suspend fun refreshFocus(id: Long): Boolean = withContext(NonCancellable) {
         val completed = db.withTransaction {
             val session = dao.session(id) ?: return@withTransaction null
             if (session.ended || !session.running) return@withTransaction null
@@ -187,7 +191,7 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
             if (db === app.database) try { app.completions.register(completed.id) } catch (_: java.io.IOException) { }
             TimerAlerts.focus(context, completed)
         }
-        return completed != null
+        completed != null
     }
     private suspend fun finishBreakCycle(focusId: Long, completed: Boolean) {
         dao.breakForFocus(focusId)?.let {
