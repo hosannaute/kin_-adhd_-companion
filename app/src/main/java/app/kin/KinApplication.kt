@@ -11,6 +11,8 @@ class KinApplication : Application() {
     val preferences by lazy { Preferences(this) }
     val companionMode by lazy { CompanionModePreferences(this) }
     val timerPreferences by lazy { TimerPreferences(this) }
+    val sounds by lazy { TimerSounds(this) }
+    val completions by lazy { FocusCompletion(this) }
     val scheduler by lazy { Scheduler(this) }
     val repository by lazy { KinRepository(this, database, scheduler) }
     val backups by lazy { BackupManager(this) }

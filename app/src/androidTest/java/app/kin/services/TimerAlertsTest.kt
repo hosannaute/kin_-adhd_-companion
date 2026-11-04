@@ -87,9 +87,9 @@ class TimerAlertsTest {
         assertEquals(time,manager.activeNotifications.single { it.tag==posted.tag && it.id==posted.id }.postTime)
         assertEquals(due.revision,dao.breakSession(due.id)!!.alertedRevision)
         assertEquals(0,posted.notification.flags and Notification.FLAG_ONLY_ALERT_ONCE)
-        assertEquals(TimerAlerts.channelId(TimerAlertKind.BREAK,AlertMode.SOUND_VIBRATION),posted.notification.channelId)
+        assertEquals(TimerAlerts.channelId(TimerAlertKind.BREAK,AlertMode.SOUND_VIBRATION,app.sounds.flow.first().breakEnd),posted.notification.channelId)
     }
-    @Test fun quietHoursAndSilentPreferenceSuppressAlertingWithoutChangingTheChannel() {
+    @Test fun quietHoursAndSilentPreferenceSuppressAlertingWithoutChangingTheChannel()=runBlocking<Unit> {
         val hour=LocalTime.now().hour
         val quiet=UserPreferences(quietStart=(hour+23)%24,quietEnd=(hour+1)%24)
         for (pref in listOf(quiet,UserPreferences(alertMode=AlertMode.SILENT,quietStart=0,quietEnd=0))) {
@@ -108,7 +108,7 @@ class TimerAlertsTest {
         assertEquals(1,results.count { it })
         await { manager.activeNotifications.any { it.tag=="kin.focus.$id" } }
         val posted=manager.activeNotifications.single { it.tag=="kin.focus.$id" }
-        assertEquals(TimerAlerts.channelId(TimerAlertKind.FOCUS,AlertMode.SOUND_VIBRATION),posted.notification.channelId)
+        assertEquals(TimerAlerts.channelId(TimerAlertKind.FOCUS,AlertMode.SOUND_VIBRATION,app.sounds.flow.first().focusEnd),posted.notification.channelId)
         delay(150);assertFalse(app.repository.refreshFocus(id))
         assertEquals(posted.postTime,manager.activeNotifications.single { it.tag==posted.tag }.postTime)
         val early=app.repository.startFocus(25,task);app.repository.stopFocus(early)

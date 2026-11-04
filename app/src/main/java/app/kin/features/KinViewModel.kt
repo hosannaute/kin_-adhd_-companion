@@ -10,6 +10,8 @@ import app.kin.KinApplication
 import app.kin.data.*
 import app.kin.domain.ConversationContext
 import app.kin.services.Notifications
+import app.kin.services.TimerAlerts
+import app.kin.services.TimerAlertKind
 import app.kin.domain.BreakEntry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
@@ -35,6 +37,30 @@ class KinViewModel(val app: KinApplication) : ViewModel() {
     val breakFocusRequest = _breakFocusRequest.asStateFlow()
     fun chooseBreakFocus(value: BreakSession) { _breakFocusRequest.value = BreakEntry(value.id, value.revision) }
     fun clearBreakFocusRequest() { _breakFocusRequest.value = null }
+    val sounds = app.sounds.flow.stateIn(viewModelScope,SharingStarted.Eagerly,TimerSoundChoices())
+    val finishedFocus = combine(app.completions.flow,repository.dao.latestFocus(),repository.dao.activeFocus(),repository.dao.activeBreak()) { pending,latest,active,rest ->
+        latest?.takeIf { it.id == pending && it.completed && active == null && rest == null }
+    }.stateIn(viewModelScope,SharingStarted.Eagerly,null)
+    private val _completedBreakRequest = MutableStateFlow<FocusSession?>(null)
+    val completedBreakRequest = _completedBreakRequest.asStateFlow()
+    fun clearCompletedBreakRequest() { _completedBreakRequest.value = null }
+    fun dismissFinished(id: Long) = action { try { app.completions.dismiss(id) } finally { TimerAlerts.cancelFocus(app,id) } }
+    fun requestCompletedBreak(id: Long) = action {
+        val latest = repository.dao.latestFocus().first()
+        if (app.completions.flow.first() != id || latest?.id != id || !latest.completed || repository.dao.currentFocus() != null || repository.dao.currentBreak() != null) return@action
+        TimerAlerts.cancelFocus(app,id);app.completions.dismiss(id)
+        _completedBreakRequest.value = latest
+    }
+    private val _soundBusy = MutableStateFlow(false)
+    val soundBusy = _soundBusy.asStateFlow()
+    private fun soundAction(work: suspend () -> Unit) {
+        if (_soundBusy.value) return
+        _soundBusy.value = true
+        action { try { work() } finally { _soundBusy.value = false } }
+    }
+    fun importSound(kind: TimerAlertKind, uri: Uri) = soundAction { app.sounds.import(kind,uri) }
+    fun builtInSound(kind: TimerAlertKind) = soundAction { app.sounds.builtIn(kind) }
+    fun silentSound(kind: TimerAlertKind) = soundAction { app.sounds.silent(kind) }
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
     fun clearError() { _error.value = null }

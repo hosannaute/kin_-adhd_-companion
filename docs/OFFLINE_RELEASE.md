@@ -1,6 +1,8 @@
-# KIN 0.8.1 offline release and handover
+# KIN 0.9.0 offline release and handover
 
 KIN runs on the phone without ChatGPT, a Plus subscription, an account or an API key. Keep the GitHub repository and APK. Your installed app will continue working when a subscription ends.
+
+See [personal sounds, focus completion and Tecno guidance](PERSONAL_SOUNDS_AND_FINISH.md) for the 0.9.0 adjustments. Imported audio and its selections stay on this phone and are excluded from portable backups.
 
 ## Timer alerts
 
@@ -40,7 +42,7 @@ A lock screen hides the overlay; unlocking can restore it. Secure apps can suppr
 
 ## Continue development without this cloud session
 
-The latest complete source is on `feature/offline-release-and-alerts`, including the earlier release branches. The final release PR targets `main` with all of that code so it can be reviewed and merged together. Earlier stacked PRs record the incremental work. No Plus subscription is needed to review or merge the final PR on GitHub.
+The latest complete source is on `feature/refined-ui-and-personal-sounds`, including the earlier release branches. The final release PR targets `main` with all of that code so it can be reviewed and merged together. Earlier stacked PRs record the incremental work. No Plus subscription is needed to review or merge the final PR on GitHub.
 
 Open the repository in Android Studio, select JDK 17, install Android SDK 35/build-tools 35.0.0, and use the checked-in Gradle wrapper. README.md describes local and managed-cloud setup. A normal local setup needs no cloud credentials. Run:
 

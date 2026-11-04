@@ -6,7 +6,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
@@ -27,9 +30,17 @@ fun MinutesPicker(value: String, onChange: (String) -> Unit, presets: List<Int>,
 @Composable
 fun ChoiceList(label: String, selected: String, choices: List<Pair<String,String>>, onSelect: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    Text(label, style = MaterialTheme.typography.titleSmall)
-    Box {
-        OutlinedButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().testTag("choice:$label")) { Text(selected) }
+    Box(Modifier.fillMaxWidth()) {
+        Surface(onClick = { open = true }, shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth().testTag("choice:$label")) {
+            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp).heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f),verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(selected, style = MaterialTheme.typography.bodyLarge)
+                }
+                Icon(Icons.Outlined.ExpandMore,null,Modifier.padding(start = 8.dp))
+            }
+        }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.heightIn(max = 280.dp)) {
             choices.forEach { (id,title) -> DropdownMenuItem(text = { Text(title) },
                 modifier = Modifier.testTag("option:$label:$id"), onClick = { onSelect(id); open = false }) }

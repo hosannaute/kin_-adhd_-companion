@@ -3,11 +3,11 @@
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
-**Status: native Android 0.8.1 development build with offline backup/restore, selectable timer alerts, a persistent scrolling-break countdown, a break → reminder → focus cycle and native focus Picture-in-Picture.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
+**Status: native Android 0.9.0 development build with a refined interface, personal timer sounds, focus congratulations, offline backup/restore, selectable timer alerts, a persistent scrolling-break countdown, a break → reminder → focus cycle and native focus Picture-in-Picture.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
 
 ## Download
 
-[Download KIN 0.8.1 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
+[Download KIN 0.9.0 debug APK](downloads/KIN-debug.apk?raw=true) · Android 8.0 or later.
 
 This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). The checked-in APK is built from this branch's app source; subsequent documentation-only commits do not change its code. It uses the existing signing certificate and explicit database migrations from schema 1/2 to 3 for in-place updates. Known missing features are listed below and in the roadmap.
 
@@ -20,7 +20,8 @@ This is an early debug build, not a production release. Android may ask you to a
 - Locally stored personal goals, motivations, achievements, and companion XP. Completing the same task, focus session, or goal cannot award XP twice. Deleting a goal unlinks its tasks without deleting them. Deleting a memory does not remove earned XP.
 - First-open permission setup, notification request, battery guidance and a real sample window over the home screen. The setup also appears once when upgrading from 0.5 and remains available from Home/Settings.
 - A shared, movable companion countdown for break and focus: the running/paused break stays visible inside KIN and over ordinary apps, with remaining time visible before tapping. Drag to either edge, tap for controls, tap outside to collapse, and restore the saved position after app switching/recovery. [Behavior and limits](docs/MOVABLE_TIMER.md).
-- A consistent lavender/white/sage palette, clearer task rows, a compact Home companion banner, a live timer summary and calmer Focus screens. [Design review and public competitor references](docs/DESIGN_REVIEW.md).
+- A consistent ink/off-white/teal palette, compact Home tasks, an explicit floating-timer status/control, clearer selection lists and brief navigation transitions that respect Reduced motion. [Design review and public competitor references](docs/DESIGN_REVIEW.md).
+- Custom break/focus sounds from Android's phone-tone picker or audio files; private copies survive deletion of the originals. Natural focus completion offers Congratulations, Stop and Take a break without starting another timer automatically. [Personal sounds, finish flow and Tecno guidance](docs/PERSONAL_SOUNDS_AND_FINISH.md).
 - Preset durations, task/goal lists, quick scheduling choices, remembered recent choices and short onboarding reduce routine typing.
 - A separate planned-break timer with a chosen return task/goal, large companion prompt over other apps, goal-linked five-minute snoozing, a focus-duration picker, pause/stop controls and notification fallback. Completed focus offers another break. [Cycle behavior and Android limits](docs/BREAK_FOCUS_CYCLE.md).
 - Focus presets (5, 15, 25, 45 minutes), custom duration (1–180 minutes), pause/resume, task association, and saved completed/interrupted sessions. Monotonic time and a persisted boot count protect active countdown accuracy across process recreation and wall-clock changes. Active sessions are interrupted on reboot without awarding XP; paused sessions can be resumed. Finishing early awards no XP.

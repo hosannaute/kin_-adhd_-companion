@@ -17,6 +17,10 @@
     <application android:name=".KinApplication" android:allowBackup="false" android:fullBackupContent="@xml/backup_rules" android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="KIN" android:icon="@drawable/ic_kin" android:supportsRtl="true"
         android:theme="@style/Theme.Kin">
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.sounds" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/timer_sound_paths" />
+        </provider>
+        <receiver android:name=".services.FocusCompletionReceiver" android:exported="false" />
         <service android:name=".services.OverlayPreviewService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Explicit user-requested fifteen-second companion window permission test with a foreground notification and automatic stop" />

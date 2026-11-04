@@ -68,6 +68,11 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lastStartId = startId
+        if (intent?.action == "app.kin.REVEAL_TIMER") {
+            hide(); expanded = false; acknowledgment = false; ackUntil = 0
+            retryAfter = 0; windowError = null
+            scope.launch { tick() }
+        }
         if (!activated) {
             try { startForeground(BreakNotifications.FOREGROUND_ID, BreakNotifications.foreground(this, null)) }
             catch (_: RuntimeException) { status.value = BreakTimerStatus(message = "Background timer unavailable. Reopen KIN to recover the saved timer."); stopSelf(); return START_NOT_STICKY }
@@ -258,6 +263,9 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     override fun onBind(intent: Intent?) = null
     companion object {
         val status = MutableStateFlow(BreakTimerStatus())
+        fun reveal(context: Context): Boolean = try {
+            ContextCompat.startForegroundService(context, Intent(context, BreakTimerService::class.java).setAction("app.kin.REVEAL_TIMER")); true
+        } catch (_: RuntimeException) { status.value = BreakTimerStatus(message = "Reopen the active timer to recover its window."); false }
         fun start(context: Context): Boolean = try {
             ContextCompat.startForegroundService(context, Intent(context, BreakTimerService::class.java)); true
         } catch (_: RuntimeException) { status.value = BreakTimerStatus(message = "Android blocked the background timer. Reopen KIN to recover it."); false }

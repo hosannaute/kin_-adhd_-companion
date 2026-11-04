@@ -31,6 +31,7 @@ fun TimerCheckScreen(vm: KinViewModel, onBack: () -> Unit, openFocus: () -> Unit
         PageTitle("Check your timer","${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}")
         SoftCard {
             Text("1 · Check permissions",style=MaterialTheme.typography.titleMedium)
+            TecnoBatteryHint()
             Text("Allow the companion window and notifications. Review KIN's battery settings for background restrictions.")
             OutlinedButton(onClick={ permissions=true }) { Text("Review timer permissions") }
         }

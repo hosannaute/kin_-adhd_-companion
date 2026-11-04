@@ -62,7 +62,7 @@ class OfflineReleaseUiTest {
         compose.waitUntil(15_000) { runBlocking { app.preferences.flow.first().let { it.alertMode==AlertMode.SILENT && it.reminderStyle==ReminderStyle.FIRM && it.snoozeMinutes==10 && it.snoozeLimit==1 } } }
         scenario!!.recreate()
         compose.waitUntil(30_000) { compose.onAllNodesWithTag("settings_screen").fetchSemanticsNodes(atLeastOneRootRequired=false).isNotEmpty() }
-        reveal(hasTestTag("choice:Alert mode"));compose.onNodeWithTag("choice:Alert mode").assertTextContains("Silent")
+        reveal(hasTestTag("choice:Alert mode"));compose.onNodeWithTag("choice:Alert mode").assertTextContains("Silent",substring = true)
     }
     private suspend fun prepareRestore() {
         file.writeBytes(app.backups.export())

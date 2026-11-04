@@ -81,6 +81,7 @@ class BackupManager(private val app: KinApplication) {
             app.getSystemService(NotificationManager::class.java).cancelAll()
             var settingsSaved=true
             try {
+                app.completions.clear()
                 app.preferences.save(data.preferences.copy(onboarded=true))
                 remindersEnabled=data.preferences.reminders
                 app.timerPreferences.restore(remapped)

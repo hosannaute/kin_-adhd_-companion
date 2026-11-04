@@ -40,13 +40,13 @@ fun PageTitle(title: String, subtitle: String, action: (@Composable () -> Unit)?
 @Composable
 fun SoftCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Card(modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+        shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
     }
 }
 
 @Composable
-fun TaskRow(task: Task, complete: () -> Unit, edit: () -> Unit, start: () -> Unit) {
+fun TaskRow(task: Task, complete: () -> Unit, edit: () -> Unit, start: () -> Unit, compact: Boolean = false) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         IconToggleButton(checked = task.completed, onCheckedChange = { if (!task.resolved) complete() }, enabled = !task.resolved) {
             Icon(if (task.completed) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
@@ -55,12 +55,13 @@ fun TaskRow(task: Task, complete: () -> Unit, edit: () -> Unit, start: () -> Uni
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(task.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             Text("${task.minutes} min · ${task.category}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(Instant.ofEpochMilli(task.scheduledAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d · h:mm a")),
+            if (!compact) Text(Instant.ofEpochMilli(task.scheduledAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d · h:mm a")),
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (task.skipped) Text("Skipped · no XP", style = MaterialTheme.typography.labelSmall)
-            if (task.repeatRule != RepeatRule.NONE.name) Text("${RepeatRule.valueOf(task.repeatRule).label} · ${task.repeatZone}", style = MaterialTheme.typography.labelSmall)
+            if (!compact && task.repeatRule != RepeatRule.NONE.name) Text("${RepeatRule.valueOf(task.repeatRule).label} · ${task.repeatZone}", style = MaterialTheme.typography.labelSmall)
         }
-        Column {
+        if (compact) IconButton(onClick = edit) { Icon(Icons.Outlined.ChevronRight,"Edit ${task.title}") }
+        else Column {
             if (!task.resolved) FilledTonalIconButton(onClick = start, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.PlayArrow, "Focus on ${task.title}") }
             IconButton(onClick = edit, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.Edit, "Edit ${task.title}", modifier = Modifier.size(18.dp)) }
         }

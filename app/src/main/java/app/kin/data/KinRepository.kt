@@ -7,6 +7,7 @@ import androidx.room.withTransaction
 import app.kin.domain.*
 import app.kin.services.Scheduler
 import app.kin.services.TimerAlerts
+import app.kin.KinApplication
 import java.time.*
 
 class KinRepository(private val context: Context, private val db: KinDatabase, private val scheduler: Scheduler,
@@ -181,7 +182,11 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
             dao.insertAchievement(Achievement("focus:$id", "Completed a ${session.durationMillis / 60_000} minute focus session"))
             session.copy(ended = true, completed = true, running = false, remainingMillis = 0)
         }
-        if (completed != null) TimerAlerts.focus(context, completed)
+        if (completed != null) {
+            val app = context.applicationContext as KinApplication
+            if (db === app.database) try { app.completions.register(completed.id) } catch (_: java.io.IOException) { }
+            TimerAlerts.focus(context, completed)
+        }
         return completed != null
     }
     private suspend fun finishBreakCycle(focusId: Long, completed: Boolean) {

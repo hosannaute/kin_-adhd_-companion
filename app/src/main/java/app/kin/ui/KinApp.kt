@@ -1,6 +1,8 @@
 package app.kin.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -24,7 +26,7 @@ private data class Destination(val route: String, val title: String, val icon: I
 @Composable
 fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEntry: TaskEntry? = null,
            compact: State<Boolean>, timer: State<PipFocusState>, enterPip: () -> Unit, pipSettings: () -> Unit,
-           breakEntry: BreakEntry? = null) {
+           breakEntry: BreakEntry? = null, completedFocusId: Long? = null) {
     val preferences by vm.preferences.collectAsStateWithLifecycle()
     val permissionsReviewed by vm.permissionSetupReviewed.collectAsStateWithLifecycle()
     val pref = preferences
@@ -67,7 +69,11 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                         }
                     }) { padding ->
                         NavHost(nav, startDestination = "home",
-                            modifier = Modifier.padding(padding)) {
+                            modifier = Modifier.padding(padding),
+                            enterTransition = { if (pref.reducedMotion) EnterTransition.None else fadeIn(tween(200)) + slideInHorizontally(tween(200)) { it / 24 } },
+                            exitTransition = { if (pref.reducedMotion) ExitTransition.None else fadeOut(tween(100)) },
+                            popEnterTransition = { if (pref.reducedMotion) EnterTransition.None else fadeIn(tween(200)) },
+                            popExitTransition = { if (pref.reducedMotion) ExitTransition.None else fadeOut(tween(100)) }) {
                             composable("home") { HomeScreen(vm, pref, { go("tasks") }, { go("focus") }, { go("more") }) }
                             composable("tasks") { TasksScreen(vm, { go("focus") },
                                 taskEntry?.takeIf { it.action == TaskEntryAction.OPTIONS }?.taskId, requestId) }
@@ -83,6 +89,7 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                                 nav.currentBackStackEntryFlow.first()
                                 if (handledRequest != requestId) {
                                     handledRequest = requestId
+                                    completedFocusId?.let { id -> vm.requestCompletedBreak(id) }
                                     if (taskEntry?.action == TaskEntryAction.START) vm.reminderStart(taskEntry.taskId)
                                     go(it)
                                 }

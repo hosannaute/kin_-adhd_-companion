@@ -32,7 +32,13 @@ import app.kin.features.PipAvailability
 fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, enterPip: () -> Unit, pipSettings: () -> Unit) {
     val activeBreak by vm.activeBreak.collectAsStateWithLifecycle()
     val latest by vm.latestFocus.collectAsStateWithLifecycle()
+    val finished by vm.finishedFocus.collectAsStateWithLifecycle()
+    val completedBreak by vm.completedBreakRequest.collectAsStateWithLifecycle()
+    var breakTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showBreakSetup by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(completedBreak?.id) { completedBreak?.let {
+        breakTaskId = it.taskId; showBreakSetup = true; vm.clearCompletedBreakRequest()
+    } }
     val breakValue = activeBreak
     if (breakValue != null && breakValue.phase in listOf("RUNNING", "PAUSED", "DUE")) {
         ActiveBreakScreen(vm, breakValue, { vm.chooseBreakFocus(breakValue) })
@@ -44,13 +50,12 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
     if (session == null && !choosingFocus) {
         LazyColumn(Modifier.fillMaxSize().testTag("focus_screen"), contentPadding = PaddingValues(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item { PageTitle("A little focus", "Rest first, or start one small task.") }
+            finished?.let { value -> item { FocusCompletionCard(value,
+                { vm.dismissFinished(value.id) }, { vm.requestCompletedBreak(value.id) }) } }
             item { SoftCard {
-                if (latest?.completed == true) {
-                    Text("Focus complete · +15 XP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Progress saved. Ready for a little break?")
-                } else Text("Take a scrolling break", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Choose a task to return to. Your timer stays on screen until the break ends.")
-                Button(onClick = { showBreakSetup = true }, modifier = Modifier.fillMaxWidth()) { Text(if (latest?.completed == true) "Plan next break" else "Plan a scrolling break") }
+                Text("Take a scrolling break", style = MaterialTheme.typography.titleLarge)
+                Text("Choose a task to return to. Your timer stays on screen until the break ends.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Button(onClick = { breakTaskId = latest?.taskId; showBreakSetup = true }, modifier = Modifier.fillMaxWidth()) { Text("Plan a scrolling break") }
             } }
             item { SoftCard {
                 Text("Focus now", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -58,7 +63,7 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
                 OutlinedButton(onClick = { vm.focusSetupRequested.value = true }, modifier = Modifier.fillMaxWidth()) { Text("Choose focus duration") }
             } }
         }
-        if (showBreakSetup) BreakSetupDialog(vm, latest?.taskId, { showBreakSetup = false })
+        if (showBreakSetup) BreakSetupDialog(vm, breakTaskId, { showBreakSetup = false })
         return
     }
     val tasks by vm.tasks.collectAsStateWithLifecycle()
@@ -138,7 +143,7 @@ fun FocusScreen(vm: KinViewModel, pref: UserPreferences, timer: PipFocusState, e
                 color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
         }
     }
-    if (showBreakSetup) BreakSetupDialog(vm, latest?.taskId, { showBreakSetup = false })
+    if (showBreakSetup) BreakSetupDialog(vm, breakTaskId, { showBreakSetup = false })
 }
 
 @Composable

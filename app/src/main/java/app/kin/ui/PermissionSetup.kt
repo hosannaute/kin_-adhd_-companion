@@ -71,6 +71,7 @@ fun PermissionSetupScreen(vm: KinViewModel, onDone: () -> Unit) {
         }
         SoftCard {
             Text("3 · Keep timers running", style = MaterialTheme.typography.titleMedium)
+            TecnoBatteryHint()
             Text(if (battery) "Battery restrictions are relaxed for KIN." else "Some phones stop background timers. In KIN's battery settings, allow background activity or choose Unrestricted if available.")
             OutlinedButton(onClick = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri())) }) { Text("Open KIN battery settings") }
         }
@@ -99,4 +100,11 @@ fun rememberWindowPermission(): State<Boolean> {
         lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer) }
     }
     return permission
+}
+
+/** HiOS labels vary by firmware; use supported app-details navigation above. */
+@Composable
+fun TecnoBatteryHint() {
+    if (listOf(Build.MANUFACTURER,Build.BRAND).any { it.contains("tecno",ignoreCase = true) })
+        Text("On Tecno / HiOS, also check Phone Master or Battery Lab for KIN's background activity and auto-start options. Allow KIN where available. Menu names vary by firmware.", style = MaterialTheme.typography.bodySmall)
 }

@@ -390,6 +390,24 @@ class BreakCycleTest {
         expect("Your scrolling break")
     }
 
+    @Test(timeout = 120_000) fun homeCanRevealTheFloatingTimerWithoutResettingItsPausedClockOrDock() = runBlocking<Unit> {
+        appOp("SYSTEM_ALERT_WINDOW","allow")
+        val value = begin()
+        app.breaks.pause(value.id,value.revision)
+        await { runBlocking { app.database.dao().currentBreak()?.phase == "PAUSED" } }
+        tapIcon();await { BreakTimerService.status.value.expanded }
+        val paused = app.database.dao().currentBreak()!!
+        val dock = app.timerPreferences.flow.first()
+        compose.onNodeWithText("Home",useUnmergedTree = true).performClick()
+        expect("Floating timer")
+        compose.onNodeWithTag("home_screen").performScrollToNode(hasText("Show"))
+        compose.onNodeWithText("Show").performClick()
+        await { BreakTimerService.status.value.visible && !BreakTimerService.status.value.expanded }
+        assertEquals(paused.remainingMillis,app.breaks.remaining(app.database.dao().currentBreak()!!))
+        assertEquals(dock.dockRight,app.timerPreferences.flow.first().dockRight)
+        assertEquals(dock.verticalFraction,app.timerPreferences.flow.first().verticalFraction)
+    }
+
     @Test(timeout = 120_000) fun setupPauseRecreateAndChosenFocusDurationWorkAsOneCycle() = runBlocking<Unit> {
         launchFocus()
         compose.onNodeWithTag("focus_screen").performScrollToNode(hasText("Plan a scrolling break"))
@@ -492,8 +510,8 @@ class BreakCycleTest {
         assertEquals(xp + 15, app.database.dao().companion().first()!!.xp)
         assertFalse(app.repository.refreshFocus(focus.id))
         assertEquals("COMPLETED", app.database.dao().breakSession(value.id)!!.phase)
-        compose.onNodeWithTag("focus_screen").performScrollToNode(hasText("Plan next break"))
-        compose.onNodeWithText("Plan next break").performClick()
+        compose.onNodeWithTag("focus_screen").performScrollToNode(hasText("Take a break"))
+        compose.onNodeWithText("Take a break").performClick()
         compose.onNodeWithText("Begin break").performClick()
         expect("Your scrolling break")
         await { runBlocking { app.database.dao().currentBreak()?.let { it.id != value.id } == true } }

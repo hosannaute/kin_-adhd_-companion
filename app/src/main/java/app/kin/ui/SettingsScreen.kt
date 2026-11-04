@@ -50,6 +50,7 @@ fun SettingsScreen(vm: KinViewModel, pref: UserPreferences, openFocus: () -> Uni
             Button(onClick = { setup = true }) { Text("Review permissions and test window") }
             OutlinedButton(onClick = { timerCheck=true }) { Text("Check timer on this phone") }
         } }
+        item { TimerAlertSettings(vm,pref,enabled) }
         item { SoftCard {
             Text("Your companion", fontWeight = FontWeight.Bold)
             OutlinedTextField(name, { name = it.take(32) }, label = { Text("Companion name") }, singleLine = true)
@@ -57,7 +58,6 @@ fun SettingsScreen(vm: KinViewModel, pref: UserPreferences, openFocus: () -> Uni
             PreferenceSwitch("Reduced motion", "Still artwork with no breathing or blinking.", pref.reducedMotion) { vm.savePreferences(pref.copy(reducedMotion = it)) }
             PreferenceSwitch("Dark mode", "A softer evening palette.", pref.darkMode) { vm.savePreferences(pref.copy(darkMode = it)) }
         } }
-        item { TimerAlertSettings(vm,pref,enabled) }
         item { SoftCard {
             Text("Reminders", fontWeight = FontWeight.Bold)
             PreferenceSwitch("Allow task reminders", "Turn off anytime for an emergency pause.", pref.reminders) { value ->
@@ -91,7 +91,7 @@ fun SettingsScreen(vm: KinViewModel, pref: UserPreferences, openFocus: () -> Uni
         item { SoftCard {
             Text("Private, offline, yours", fontWeight = FontWeight.Bold)
             Text("No accounts, ads, analytics, or cloud chat. Your data stays on this device unless you save a backup file. Android automatic backup is disabled; save a backup before uninstalling.")
-            Text("KIN 0.8.1 · Early development build", style = MaterialTheme.typography.labelMedium)
+            Text("KIN 0.9.0 · Early development build", style = MaterialTheme.typography.labelMedium)
         } }
     }
 }

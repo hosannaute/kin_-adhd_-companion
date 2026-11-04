@@ -43,8 +43,10 @@ fun HomeScreen(vm: KinViewModel, pref: UserPreferences, openTasks: () -> Unit, o
     var breakSetup by remember { mutableStateOf(false) }
     val cycle by vm.activeBreak.collectAsStateWithLifecycle()
     val focus by vm.focus.collectAsStateWithLifecycle()
+    val finished by vm.finishedFocus.collectAsStateWithLifecycle()
+    val floating by app.kin.services.BreakTimerService.status.collectAsStateWithLifecycle()
     val today = tasks.filter { !it.resolved && it.today() }.take(3)
-    LazyColumn(Modifier.fillMaxSize().testTag("home_screen"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+    LazyColumn(Modifier.fillMaxSize().testTag("home_screen"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMM d")), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -53,22 +55,22 @@ fun HomeScreen(vm: KinViewModel, pref: UserPreferences, openTasks: () -> Unit, o
             FilledTonalIconButton(onClick = openSettings) { Icon(Icons.Outlined.Settings, "Settings") }
         } }
         item { Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-            Row(Modifier.fillMaxWidth().padding(start = 22.dp, top = 14.dp, bottom = 14.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(start = 18.dp, top = 8.dp, bottom = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("One small step.", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text("A little progress is enough for today.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     Text("${pref.name} · ${stage.label} · ${companion?.xp ?: 0} XP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
-                CompanionArt(stage, pref.reducedMotion, Modifier.size(80.dp), CreatureMood.WAVING)
+                CompanionArt(stage, pref.reducedMotion, Modifier.size(68.dp), CreatureMood.WAVING)
             }
         } }
+        finished?.let { value -> item { FocusCompletionCard(value,
+            { vm.dismissFinished(value.id) }, { vm.requestCompletedBreak(value.id); openFocus() }) } }
         item { SoftCard {
             Text("Your next small step", style = MaterialTheme.typography.titleMedium)
             if (cycle != null || focus != null) {
                 HomeTimerSummary(vm, cycle, focus)
                 Button(onClick = openFocus, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Open active timer") }
             } else {
-                Text("Rest first, or begin one task.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Button(onClick = { breakSetup = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                     Icon(Icons.Outlined.Coffee, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Take a scrolling break")
                 }
@@ -76,12 +78,35 @@ fun HomeScreen(vm: KinViewModel, pref: UserPreferences, openTasks: () -> Unit, o
                     Icon(Icons.Outlined.PlayArrow, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Focus now")
                 }
             }
-            if (!windowAllowed) Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(12.dp)) {
-                Text("Allow the companion window to keep your timer on screen.", Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
-            }
-            if (!windowAllowed) TextButton(onClick = { permissionSetup = true }) {
-                Icon(if (windowAllowed) Icons.Outlined.CheckCircle else Icons.Outlined.Info, null, Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp)); Text("Check companion permissions")
+        } }
+        item { Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
+            Row(Modifier.fillMaxWidth().padding(start = 14.dp, top = 6.dp, bottom = 6.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.PictureInPictureAlt,null,Modifier.size(22.dp),tint = MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                    Text("Floating timer", style = MaterialTheme.typography.labelLarge)
+                    Text(when {
+                        !windowAllowed -> "Window permission needed"
+                        cycle?.phase == "DUE" -> "Your return-to-task reminder is ready"
+                        focus != null -> "Appears when you leave KIN"
+                        cycle != null && floating.visible -> "At the screen edge · tap to expand"
+                        cycle != null -> floating.message
+                        else -> "Start a break to show it across apps"
+                    },style = MaterialTheme.typography.bodySmall,color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                TextButton(onClick = {
+                    when {
+                        !windowAllowed -> permissionSetup = true
+                        cycle?.phase == "DUE" || focus != null -> openFocus()
+                        cycle != null -> app.kin.services.BreakTimerService.reveal(vm.app)
+                        else -> breakSetup = true
+                    }
+                }) { Text(when {
+                    !windowAllowed -> "Set up"
+                    cycle?.phase == "DUE" -> "Open"
+                    focus != null -> "Open"
+                    cycle != null -> "Show"
+                    else -> "Start"
+                }) }
             }
         } }
         item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -96,14 +121,13 @@ fun HomeScreen(vm: KinViewModel, pref: UserPreferences, openTasks: () -> Unit, o
             today.forEachIndexed { index, task ->
                 if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 TaskRow(task, { vm.action { vm.repository.completeTask(task.id) } }, { editing = task },
-                    { if (vm.focus.value == null) vm.action { vm.repository.startFocus(task.minutes, task) }; openFocus() })
+                    { if (vm.focus.value == null) vm.action { vm.repository.startFocus(task.minutes, task) }; openFocus() }, compact = true)
             }
             TextButton(onClick = openTasks) { Icon(Icons.Outlined.Add, null); Text(" Add an adventure") }
         } }
         item { FilledTonalButton(onClick = { help = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
             Icon(Icons.Outlined.AutoAwesome, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("I can't start")
         } }
-        item { TextButton(onClick = openFocus, modifier = Modifier.fillMaxWidth()) { Text("A little focus time") } }
     }
     editing?.let { task -> TaskEditor(task, goals, { editing = null }, { vm.action { vm.repository.saveTask(it); editing = null } }) }
     if (help) CantStartDialog(vm, { help = false }, openFocus)

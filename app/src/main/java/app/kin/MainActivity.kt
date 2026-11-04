@@ -18,15 +18,19 @@ import app.kin.features.FocusPipController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.kin.domain.BreakEntry
 import app.kin.services.KinVisibility
+import app.kin.services.TimerAlerts
 
 open class MainActivity : ComponentActivity() {
     protected open val acceptsReminderStart: Boolean = false
     private var routeRequest by mutableStateOf<Pair<String, Int>?>(null)
     private var taskEntry by mutableStateOf<TaskEntry?>(null)
     private var breakEntry by mutableStateOf<BreakEntry?>(null)
+    private var completedFocusId by mutableStateOf<Long?>(null)
     private lateinit var pip: FocusPipController
     private fun acceptRoute(intent: Intent) {
         val route = intent.getStringExtra("route")?.takeIf { it in listOf("tasks", "focus", "more") } ?: return
+        completedFocusId = intent.getLongExtra("completedFocusId",0).takeIf { it > 0 && acceptsReminderStart && intent.getBooleanExtra("chooseBreakAfterFocus",false) }
+        completedFocusId?.let { TimerAlerts.cancelFocus(this,it) }
         val taskId = intent.getLongExtra("taskId", 0)
         val breakId = intent.getLongExtra("breakId", 0)
         val breakRevision = intent.getIntExtra("breakRevision", -1)
@@ -43,6 +47,7 @@ open class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) acceptRoute(intent) else {
             savedInstanceState.getString("requestedRoute")?.let { routeRequest = it to savedInstanceState.getInt("requestId") }
+            completedFocusId = savedInstanceState.getLong("completedFocusId").takeIf { it > 0 }
             val id = savedInstanceState.getLong("taskId")
             val action = savedInstanceState.getString("taskAction")?.let { runCatching { TaskEntryAction.valueOf(it) }.getOrNull() }
             if (id > 0 && action != null) taskEntry = TaskEntry(id, action)
@@ -59,7 +64,7 @@ open class MainActivity : ComponentActivity() {
             val compact = pip.compact.collectAsStateWithLifecycle()
             val focusState = pip.state.collectAsStateWithLifecycle()
             KinApp(vm, routeRequest?.first, routeRequest?.second ?: 0, taskEntry,
-                compact, focusState, pip::enter, pip::openSettings, breakEntry)
+                compact, focusState, pip::enter, pip::openSettings, breakEntry, completedFocusId)
         }
     }
     override fun onNewIntent(intent: Intent) {
@@ -69,6 +74,7 @@ open class MainActivity : ComponentActivity() {
     }
     override fun onSaveInstanceState(outState: Bundle) {
         routeRequest?.let { outState.putString("requestedRoute", it.first); outState.putInt("requestId", it.second) }
+        completedFocusId?.let { outState.putLong("completedFocusId",it) }
         taskEntry?.let { outState.putLong("taskId", it.taskId); outState.putString("taskAction", it.action.name) }
         if (::pip.isInitialized) pip.save(outState)
         breakEntry?.let { outState.putLong("breakEntryId", it.id); outState.putInt("breakEntryRevision", it.revision) }
