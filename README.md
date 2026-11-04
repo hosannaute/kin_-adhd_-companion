@@ -112,6 +112,13 @@ Reminders use deferrable WorkManager jobs, not exact alarms. Quiet-hour task rem
 
 ## Screenshots
 
+0.9 runtime previews on a narrow Android 8 emulator with synthetic data. Android supplies the system bars; KIN uses the same native interface on Android 15.
+
+| Home and floating control | Phone/file sound options | Focus completion |
+| --- | --- | --- |
+| <img src="docs/screenshots/v09/home.png" alt="KIN 0.9 Home and clear floating timer control" width="220"> | <img src="docs/screenshots/v09/sound-choices.png" alt="KIN phone sounds and audio file choices" width="220"> | <img src="docs/screenshots/v09/focus-complete.png" alt="Congratulations with Take a break and Stop" width="220"> |
+
+
 The timer-alert panel below was captured from the actual 0.8 UI on an Android 8 emulator. Its layout is unchanged in 0.8.1.
 
 <img src="docs/screenshots/v08/timer-alerts.png" alt="KIN timer alert mode and appearance settings" width="240">

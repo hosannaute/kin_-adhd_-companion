@@ -6,6 +6,7 @@ import android.media.AudioManager
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.os.Handler
 import android.os.Looper
 import android.media.AudioPlaybackConfiguration
@@ -75,7 +76,11 @@ class PersonalSoundsTest {
             while (!played.get() && audio.activePlaybackConfigurations.none { it.audioAttributes.usage == AudioAttributes.USAGE_NOTIFICATION }) {
                 check(SystemClock.elapsedRealtime() < audioDeadline) {
                     val systemUi = app.packageManager.getApplicationInfo("com.android.systemui",0)
-                    "Android did not play imported sound: ringer=${audio.ringerMode}, volume=${audio.getStreamVolume(AudioManager.STREAM_NOTIFICATION)}, filter=${manager.currentInterruptionFilter}, importance=${channel.importance}, systemRead=${app.checkUriPermission(Uri.parse(selected.uri),-1,systemUi.uid,android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)}"
+                    val logs = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(
+                        "logcat -d -t 160 -v brief -s RingtonePlayer:W MediaPlayer:W AudioTrack:W NotificationService:V AudioFlinger:W").use {
+                        ParcelFileDescriptor.AutoCloseInputStream(it).use { input -> input.readBytes().toString(Charsets.UTF_8).takeLast(1800) }
+                    }
+                    "Android did not play imported sound: ringer=${audio.ringerMode}, volume=${audio.getStreamVolume(AudioManager.STREAM_NOTIFICATION)}, filter=${manager.currentInterruptionFilter}, importance=${channel.importance}, systemRead=${app.checkUriPermission(Uri.parse(selected.uri),-1,systemUi.uid,android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)}; audio log: $logs"
                 }
                 SystemClock.sleep(50)
             }

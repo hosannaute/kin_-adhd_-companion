@@ -25,7 +25,7 @@ Audio files and sound selections are phone-local and excluded from portable JSON
 
 ## Finish focus
 
-Natural completion saves the session and awards its existing 15 XP exactly once. Home and Focus show **Congratulations!** with **Stop** and **Take a break**. The completion notification offers the same actions.
+Natural completion saves the session and awards its existing 15 XP exactly once. The completion record, congratulations and notification delivery finish even if a screen update cancels the timer observer. Home and Focus show **Congratulations!** with **Stop** and **Take a break**. The completion notification offers the same actions.
 
 Stop acknowledges that completed session and dismisses its notification; it does not stop a future timer or change XP. Take a break opens the task/duration picker. A new break begins only after **Begin break**. Old notification actions cannot acknowledge a newer completion or start a timer automatically. Finishing early still awards no XP. Acknowledgement survives reopening KIN, and restoring history does not replay congratulations for imported sessions.
 
