@@ -74,7 +74,12 @@ jobs:
           avd-name: kin-ci
           pre-emulator-launch-script: python3 scripts/configure-emulator-audio.py
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -audio pa
-          script: ./gradlew --no-daemon connectedDebugAndroidTest
+          script: |
+            kin_device_provisioned="$(adb shell settings get global device_provisioned)"
+            printf '::notice title=Emulator setup::device_provisioned before tests=%s\n' "$kin_device_provisioned"
+            adb shell settings put global device_provisioned 1
+            adb shell settings put secure user_setup_complete 1
+            ./gradlew --no-daemon connectedDebugAndroidTest
       - name: Report device test results
         if: always()
         run: python3 scripts/report-test-failures.py app/build/outputs/androidTest-results/connected
