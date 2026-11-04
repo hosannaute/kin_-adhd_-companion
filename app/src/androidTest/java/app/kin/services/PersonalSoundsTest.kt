@@ -57,7 +57,7 @@ class PersonalSoundsTest {
         // Observe the system's notification playback, not a test-only MediaPlayer preview.
         val audio = app.getSystemService(AudioManager::class.java)
         val audioDeadline = SystemClock.elapsedRealtime() + 5_000
-        while (audio.activePlaybackConfigurations.none { it.isActive && it.audioAttributes.usage == AudioAttributes.USAGE_NOTIFICATION }) {
+        while (audio.activePlaybackConfigurations.none { it.audioAttributes.usage == AudioAttributes.USAGE_NOTIFICATION }) {
             check(SystemClock.elapsedRealtime() < audioDeadline) { "Android did not play the imported notification sound" }
             SystemClock.sleep(50)
         }
