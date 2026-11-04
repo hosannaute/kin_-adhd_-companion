@@ -1,6 +1,6 @@
 # KIN
 
-> **Latest app: [Download KIN 0.9.0 APK](https://github.com/hosannaute/kin_-adhd_-companion/releases/download/v0.9.0-debug/KIN-debug.apk)** · [Release notes](https://github.com/hosannaute/kin_-adhd_-companion/releases/tag/v0.9.0-debug) · [Latest source](https://github.com/hosannaute/kin_-adhd_-companion/tree/v0.9.0-debug)
+> **Latest app: [Download KIN 0.9.0 APK](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/tags/v0.9.0-debug/downloads/KIN-debug.apk)** · [Release notes](https://github.com/hosannaute/kin_-adhd_-companion/releases/tag/v0.9.0-debug) · [Latest source](https://github.com/hosannaute/kin_-adhd_-companion/tree/v0.9.0-debug)
 
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
@@ -9,9 +9,9 @@ Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
 ## Download
 
-[Download KIN 0.9.0 debug APK](https://github.com/hosannaute/kin_-adhd_-companion/releases/download/v0.9.0-debug/KIN-debug.apk) · Android 8.0 or later.
+[Download KIN 0.9.0 debug APK](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/tags/v0.9.0-debug/downloads/KIN-debug.apk) · Android 8.0 or later.
 
-The public APK and [checksum](https://github.com/hosannaute/kin_-adhd_-companion/releases/download/v0.9.0-debug/KIN-debug.apk.sha256) are attached to [the 0.9.0 release](https://github.com/hosannaute/kin_-adhd_-companion/releases/tag/v0.9.0-debug). Install over the existing KIN app to retain local data. This is an early debug build. Release notes include validation results and the remaining Android 8 automatic app-usage check-in test limitation.
+The public APK and [checksum](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/tags/v0.9.0-debug/downloads/KIN-debug.apk.sha256) are published at tag v0.9.0-debug. Read [the 0.9.0 release notes](https://github.com/hosannaute/kin_-adhd_-companion/releases/tag/v0.9.0-debug). Install over the existing KIN app to retain local data. This is an early debug build. Release notes include validation results and the remaining Android 8 automatic app-usage check-in test limitation.
 
 The latest app source is available at [tag v0.9.0-debug](https://github.com/hosannaute/kin_-adhd_-companion/tree/v0.9.0-debug) and [PR #10](https://github.com/hosannaute/kin_-adhd_-companion/pull/10). The source on this main branch is still the older snapshot pending that review; the sections below describe that snapshot.
 
