@@ -21,7 +21,7 @@ import app.kin.features.PipFocusState
 import app.kin.domain.BreakEntry
 import kotlinx.coroutines.flow.first
 
-private data class Destination(val route: String, val title: String, val icon: ImageVector)
+private data class Destination(val route: String, val title: String, val icon: ImageVector, val selectedIcon: ImageVector)
 
 @Composable
 fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEntry: TaskEntry? = null,
@@ -47,24 +47,37 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                 val snackbar = remember { SnackbarHostState() }
                 val error by vm.error.collectAsStateWithLifecycle()
                 LaunchedEffect(error) { error?.let { snackbar.showSnackbar(it); vm.clearError() } }
-                val destinations = listOf(Destination("home", "Home", Icons.Outlined.Home),
-                    Destination("tasks", "Tasks", Icons.Outlined.CheckCircle),
-                    Destination("focus", "Focus", Icons.Outlined.Timer),
-                    Destination("world", "Companion", Icons.Outlined.AutoAwesome))
+                val destinations = listOf(
+                    Destination("home", "Home", Icons.Outlined.Home, Icons.Outlined.Home),
+                    Destination("tasks", "Tasks", Icons.Outlined.CheckCircle, Icons.Outlined.CheckCircle),
+                    Destination("focus", "Focus", Icons.Outlined.Timer, Icons.Outlined.Timer),
+                    Destination("world", "Companion", Icons.Outlined.AutoAwesome, Icons.Outlined.AutoAwesome)
+                )
                 val entry by nav.currentBackStackEntryAsState()
                 fun go(route: String) { nav.navigate(route) { launchSingleTop = true; popUpTo("home") { saveState = true }; restoreState = true } }
                 Box(Modifier.fillMaxSize()) {
                     // Keep the NavHost installed while pinned so expanding returns to the same route.
                     Scaffold(modifier = if (compact.value) Modifier.size(0.dp).clearAndSetSemantics { } else Modifier.fillMaxSize(),
                         snackbarHost = { if (!compact.value) SnackbarHost(snackbar) }, bottomBar = {
-                        if (!compact.value) NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-                            destinations.forEach { dest ->
-                                NavigationBarItem(selected = entry?.destination?.route == dest.route,
-                                    onClick = { go(dest.route) }, icon = { Icon(dest.icon, dest.title) },
-                                    label = { Text(dest.title) }, colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary,
-                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer, unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant))
+                        if (!compact.value) Column {
+                            HorizontalDivider(color = KinPalette.current.cardBorder.copy(alpha = 0.7f))
+                            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+                                destinations.forEach { dest ->
+                                    val selected = entry?.destination?.route == dest.route
+                                    NavigationBarItem(
+                                        selected = selected,
+                                        onClick = { go(dest.route) },
+                                        icon = { Icon(if (selected) dest.selectedIcon else dest.icon, dest.title) },
+                                        label = { Text(dest.title, fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    )
+                                }
                             }
                         }
                     }) { padding ->
@@ -77,7 +90,7 @@ fun KinApp(vm: KinViewModel, requestedRoute: String?, requestId: Int = 0, taskEn
                             composable("home") { HomeScreen(vm, pref, { go("tasks") }, { go("focus") }, { go("more") }) }
                             composable("tasks") { TasksScreen(vm, { go("focus") },
                                 taskEntry?.takeIf { it.action == TaskEntryAction.OPTIONS }?.taskId, requestId) }
-                            composable("world") { Column { TextButton(onClick = { go("chat") }) { Text("Talk to your companion") }; Box(Modifier.weight(1f)) { WorldScreen(vm, pref) } } }
+                            composable("world") { WorldScreen(vm, pref, openChat = { go("chat") }) }
                             composable("chat") { ChatScreen(vm, pref) }
                             composable("more") { SettingsScreen(vm, pref, { go("focus") }) }
                             composable("focus") { if (!compact.value) FocusScreen(vm, pref, timer.value, enterPip, pipSettings) }

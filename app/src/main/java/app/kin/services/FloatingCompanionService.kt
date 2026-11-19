@@ -148,10 +148,12 @@ class FloatingCompanionService : Service(), LifecycleOwner, SavedStateRegistryOw
             !getSystemService(PowerManager::class.java).isInteractive
         val pip = PipVisibility.visible.value
         val breakPrompt = BreakPromptVisibility.visible.value
-        if (paused || quiet || locked || pip || breakPrompt || plannedBreak) {
+        val scrollAlert = ScrollDetectorService.status.value.alertVisible
+        if (paused || quiet || locked || pip || breakPrompt || plannedBreak || scrollAlert) {
             poller.reset(); nextUsagePoll = 0; expanded = false; hide()
             status.value = FloatingStatus(true, false, when { paused -> "Paused for 15 minutes"; plannedBreak -> "Timer companion is active · floating companion resting"; quiet -> "Quiet hours · companion resting";
                 pip -> "Picture-in-Picture is visible · floating companion resting";
+                scrollAlert -> "Scroll check-in window is showing";
                 breakPrompt -> "Break reminder is visible · floating companion resting"; else -> "Resting while your screen is locked or off" })
             return
         }
@@ -169,8 +171,14 @@ class FloatingCompanionService : Service(), LifecycleOwner, SavedStateRegistryOw
             if (SystemClock.elapsedRealtime() < nextUsagePoll) return
             nextUsagePoll = SystemClock.elapsedRealtime() + 15_000L
             try {
-                if (poller.poll(options.selectedApps) != null) {
-                    bubble = "You've spent about ${options.thresholdMinutes} minutes here. Still taking a break, or ready for a small step?"
+                val triggeredPkg = poller.poll(options.selectedApps)
+                if (triggeredPkg != null) {
+                    val label = runCatching {
+                        packageManager.getApplicationLabel(packageManager.getApplicationInfo(triggeredPkg, 0)).toString()
+                    }.getOrDefault("")
+                    val prefix = if (label.isNotBlank()) "You've been scrolling in $label for more than ${options.thresholdMinutes} min."
+                        else "You've been scrolling for more than ${options.thresholdMinutes} min."
+                    bubble = "$prefix Still taking a break, or ready for a small step?"
                     expanded = true
                     root?.post { constrainPosition() }
                 }

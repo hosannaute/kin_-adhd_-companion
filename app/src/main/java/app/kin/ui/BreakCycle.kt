@@ -141,13 +141,41 @@ fun ActiveBreakScreen(vm: KinViewModel, value: BreakSession, onStart: () -> Unit
             if (value.goalTitle.isNotBlank()) Text(value.goalTitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (value.snoozeCount > 0) Text(BreakPolicy.message(value.taskTitle, value.goalTitle, value.snoozeCount, options.reminderStyle))
             Button(onClick = onStart, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Start task") }
+            var confirmSnooze by remember { mutableStateOf(false) }
+            var confirmStop by remember { mutableStateOf(false) }
             when (value.phase) {
                 "RUNNING" -> OutlinedButton(onClick = { vm.action { vm.app.breaks.pause(value.id, value.revision) } }, modifier = Modifier.fillMaxWidth()) { Text("Pause break") }
                 "PAUSED" -> OutlinedButton(onClick = { vm.action { vm.app.breaks.resume(value.id, value.revision) } }, modifier = Modifier.fillMaxWidth()) { Text("Resume break") }
-                "DUE" -> if (AlertPolicy.canSnooze(value.snoozeCount,options.snoozeLimit)) OutlinedButton(onClick = { vm.action { if (vm.app.breaks.snooze(value.id, value.revision))
-                    vm.app.breaks.dao.breakSession(value.id)?.let { BreakNotifications.snoozed(vm.app, it) } } }, modifier = Modifier.fillMaxWidth()) { Text("Snooze ${options.snoozeMinutes} min") }
+                "DUE" -> if (AlertPolicy.canSnooze(value.snoozeCount, options.snoozeLimit)) OutlinedButton(onClick = { confirmSnooze = true }, modifier = Modifier.fillMaxWidth()) { Text("Snooze ${options.snoozeMinutes} min") }
             }
-            TextButton(onClick = { vm.action { vm.app.breaks.stop(value.id, value.revision) } }) { Text("Stop break") }
+            TextButton(onClick = { confirmStop = true }) { Text("Stop break", color = MaterialTheme.colorScheme.error) }
+            if (confirmSnooze) AlertDialog(
+                onDismissRequest = { confirmSnooze = false },
+                title = { Text("Are you sure?") },
+                text = { Text("Snoozing adds ${options.snoozeMinutes} more minutes before returning to \"${value.taskTitle}\". Ready to start one small step instead?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmSnooze = false
+                        vm.action {
+                            if (vm.app.breaks.snooze(value.id, value.revision))
+                                vm.app.breaks.dao.breakSession(value.id)?.let { BreakNotifications.snoozed(vm.app, it) }
+                        }
+                    }) { Text("Yes, snooze ${options.snoozeMinutes} min") }
+                },
+                dismissButton = { TextButton(onClick = { confirmSnooze = false }) { Text("Go back") } }
+            )
+            if (confirmStop) AlertDialog(
+                onDismissRequest = { confirmStop = false },
+                title = { Text("Are you sure?") },
+                text = { Text("Stopping this break without returning to your task will reduce ${options.name}'s XP by ${Rewards.BREAK_STOP_PENALTY} XP.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmStop = false
+                        vm.action { vm.app.breaks.stop(value.id, value.revision, penalizeXp = true) }
+                    }) { Text("Yes, stop break (-${Rewards.BREAK_STOP_PENALTY} XP)", color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = { TextButton(onClick = { confirmStop = false }) { Text("Go back") } }
+            )
         }
         if (!status.running) {
             Text("The timer is saved. Restart its floating control to keep it nearby.", style = MaterialTheme.typography.bodySmall)
@@ -161,14 +189,21 @@ fun ActiveBreakScreen(vm: KinViewModel, value: BreakSession, onStart: () -> Unit
 @Composable
 fun BreakCycleHost(vm: KinViewModel, pref: UserPreferences, entry: BreakEntry?, requestId: Int, openFocus: () -> Unit) {
     val active by vm.activeBreak.collectAsStateWithLifecycle()
+    val activeFocus by vm.focus.collectAsStateWithLifecycle()
+    val finishedFocus by vm.finishedFocus.collectAsStateWithLifecycle()
     val companion by vm.companion.collectAsStateWithLifecycle()
     val internalRequest by vm.breakFocusRequest.collectAsStateWithLifecycle()
     var handled by rememberSaveable { mutableIntStateOf(-1) }
     var pickerId by rememberSaveable { mutableStateOf<Long?>(null) }
     var pickerRevision by rememberSaveable { mutableIntStateOf(-1) }
     var dismissedDue by rememberSaveable { mutableStateOf("") }
+    var sawActiveFocusId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var dismissedCongratsId by rememberSaveable { mutableLongStateOf(0L) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val promptOwner = remember { "break-dialog:${java.util.UUID.randomUUID()}" }
+    LaunchedEffect(activeFocus?.id) {
+        if (activeFocus != null && !activeFocus!!.ended) sawActiveFocusId = activeFocus!!.id
+    }
     LaunchedEffect(internalRequest) {
         internalRequest?.let {
             pickerId = it.id; pickerRevision = it.revision; dismissedDue = "${it.id}:${it.revision}"
@@ -204,7 +239,27 @@ fun BreakCycleHost(vm: KinViewModel, pref: UserPreferences, entry: BreakEntry?, 
                 onStart = { dismissedDue = "${value.id}:${value.revision}"; pickerId = value.id; pickerRevision = value.revision },
                 onSnooze = { vm.action { if (vm.app.breaks.snooze(value.id, value.revision))
                     vm.app.breaks.dao.breakSession(value.id)?.let { BreakNotifications.snoozed(vm.app, it) } } },
-                onStop = { vm.action { vm.app.breaks.stop(value.id, value.revision) } })
+                onStop = { vm.action { vm.app.breaks.stop(value.id, value.revision, penalizeXp = true) } })
+        }
+    }
+    val done = finishedFocus
+    if (done != null && sawActiveFocusId == done.id && dismissedCongratsId != done.id && value == null && pickerId == null) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { dismissedCongratsId = done.id }) {
+            FocusCompletionOverlayPanel(
+                session = done,
+                companionName = pref.name,
+                stage = Evolution.at(companion?.xp ?: 0),
+                reducedMotion = pref.reducedMotion,
+                onBreak = {
+                    dismissedCongratsId = done.id
+                    vm.requestCompletedBreak(done.id)
+                    openFocus()
+                },
+                onStop = {
+                    dismissedCongratsId = done.id
+                    vm.dismissFinished(done.id)
+                }
+            )
         }
     }
     if (pickerId != null) {
@@ -223,11 +278,13 @@ fun FocusDurationDialog(vm: KinViewModel, value: BreakSession, revision: Int, on
     var minutes by rememberSaveable(value.id) { mutableStateOf(options.focusMinutes.toString()) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val previewXp = minutes.toIntOrNull()?.takeIf { it in 1..180 }?.let(Rewards::focus)
     AlertDialog(onDismissRequest = onDismiss, title = { Text("How long do you want to focus?") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(value.taskTitle)
-            MinutesPicker(minutes, { minutes = it }, listOf(5,10,15,25,45), "Focus minutes")
-            Text("Your break ends when you start this focus session. Finishing early awards no XP.", style = MaterialTheme.typography.bodySmall)
+            Text(value.taskTitle, style = MaterialTheme.typography.titleMedium)
+            MinutesPicker(minutes, { minutes = it }, listOf(5, 10, 15, 25, 45), "Focus minutes")
+            previewXp?.let { XpBadge("Complete for +$it XP · Longer = more XP") }
+            Text("Your break ends when you start this focus session. Finishing early awards no XP.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = { TextButton(enabled = !saving && minutes.toIntOrNull() in 1..180, onClick = {

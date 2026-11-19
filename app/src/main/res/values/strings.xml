@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scroll_detector_description">Detects continuous scrolling offline so KIN can gently remind you when you have been scrolling past your chosen limit. KIN never reads screen text, messages, or passwords.</string>
+</resources>

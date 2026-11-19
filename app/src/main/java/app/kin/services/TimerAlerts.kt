@@ -89,9 +89,10 @@ object TimerAlerts {
         context.getSystemService(NotificationManager::class.java).activeNotifications.filter {
             it.tag?.startsWith("kin.focus.") == true && it.tag != "kin.focus.${value.id}"
         }.forEach { context.getSystemService(NotificationManager::class.java).cancel(it.tag,it.id) }
+        val earnedXp = app.kin.domain.Rewards.focusForMillis(value.durationMillis)
         post(context,"kin.focus.${value.id}",Int.MAX_VALUE,builder(context,TimerAlertKind.FOCUS,pref)
             .setContentTitle("Congratulations! Focus complete")
-            .setContentText("${value.taskTitle} · +15 XP. Stop or take a break.")
+            .setContentText("${value.taskTitle} · +$earnedXp XP. Stop or take a break.")
             .setContentIntent(open).addAction(0,"Stop",stop).addAction(0,"Take a break",takeBreak).build())
     }
     suspend fun preview(context: Context, kind: TimerAlertKind) {

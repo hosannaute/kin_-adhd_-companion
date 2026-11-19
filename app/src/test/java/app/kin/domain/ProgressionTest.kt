@@ -16,6 +16,22 @@ class ProgressionTest {
         assertEquals(20, Rewards.task(16)); assertEquals(20, Rewards.task(45))
         assertEquals(30, Rewards.task(46))
     }
+    @Test fun longerFocusSessionsAwardHigherXp() {
+        assertEquals(15, Rewards.focus(1))
+        assertEquals(15, Rewards.focus(5))
+        assertTrue(Rewards.focus(10) > Rewards.focus(5))
+        assertTrue(Rewards.focus(15) > Rewards.focus(10))
+        assertTrue(Rewards.focus(25) > Rewards.focus(15))
+        assertTrue(Rewards.focus(45) > Rewards.focus(25))
+        assertTrue(Rewards.focus(60) > Rewards.focus(45))
+        assertTrue(Rewards.focus(120) > Rewards.focus(60))
+        assertEquals(Rewards.focus(25), Rewards.focusForMillis(25 * 60_000L))
+    }
+    @Test fun breakStopPenaltyReducesXpWithoutGoingNegative() {
+        assertEquals(40, Rewards.applyPenalty(50))
+        assertEquals(0, Rewards.applyPenalty(5))
+        assertEquals(0, Rewards.applyPenalty(0))
+    }
     @Test fun countdownUsesElapsedTimeOnly() {
         assertEquals(40_000L, FocusClock.remaining(60_000L, 100_000L, 120_000L))
     }

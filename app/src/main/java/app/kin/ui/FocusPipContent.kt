@@ -39,7 +39,7 @@ fun FocusPipContent(vm: KinViewModel, pref: UserPreferences, timerState: State<P
                         else "%02d:%02d".format(seconds / 60, seconds % 60),
                         color = Color.White, fontSize = timerSize, fontWeight = FontWeight.Bold, maxLines = 1)
                     Text(timer.message ?: when {
-                        session?.completed == true -> "+15 XP · Well done"
+                        session?.completed == true -> "+${app.kin.domain.Rewards.focusForMillis(session.durationMillis)} XP · Well done"
                         finished -> "Saved · No XP"
                         session?.running == false -> "Paused"
                         else -> "Focus with ${pref.name}"

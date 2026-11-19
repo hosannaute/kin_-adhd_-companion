@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.*
 import androidx.savedstate.*
 import app.kin.KinApplication
+import app.kin.ReminderActivity
 import app.kin.data.*
 import app.kin.domain.*
 import app.kin.ui.*
@@ -43,6 +44,7 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private var lastStartId = 0
     private var current by mutableStateOf<BreakSession?>(null)
     private var focus by mutableStateOf<FocusSession?>(null)
+    private var completedFocus by mutableStateOf<FocusSession?>(null)
     private var pref by mutableStateOf<UserPreferences?>(null)
     private var stage by mutableStateOf(Evolution.EGG)
     private var expanded by mutableStateOf(false)
@@ -53,6 +55,7 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private var dragging = false
     private var ackUntil = 0L
     private var seenDue = ""
+    private var seenCompletedFocusId = 0L
     private var previous: BreakSession? = null
     private var modeKey = ""
     private var notificationKey = ""
@@ -95,38 +98,69 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 app.repository.refreshFocus(work.id)
                 work = app.database.dao().currentFocus()
             }
-            if (rest == null && work == null) { stopSelf(lastStartId); return@withLock }
-            val nextMode = if (rest != null) "break:${rest.id}" else "focus:${work!!.id}"
+            val pendingDoneId = if (rest == null && work == null) app.completions.flow.first() else 0L
+            val doneFocus = if (pendingDoneId > 0L) {
+                app.database.dao().session(pendingDoneId)?.takeIf { it.completed }
+            } else null
+
+            // Outside KIN, keep the service alive to show the big celebratory Congratulations window.
+            // Once the user returns to KIN or dismisses it, KIN owns the completion card and this service stops.
+            val showDoneOverlay = doneFocus != null && !KinVisibility.resumed.value && !PipVisibility.visible.value && Settings.canDrawOverlays(this)
+            if (rest == null && work == null && !showDoneOverlay) {
+                completedFocus = null
+                stopSelf(lastStartId)
+                return@withLock
+            }
+            val nextMode = when {
+                rest != null -> "break:${rest.id}"
+                work != null -> "focus:${work.id}"
+                else -> "done:${doneFocus!!.id}"
+            }
             if (nextMode != modeKey) { expanded = false; modeKey = nextMode; ackUntil = 0; layoutKey = "" }
             val old = previous
             if (rest != null && old?.id == rest.id && rest.snoozeCount > old.snoozeCount && rest.phase == "RUNNING") {
                 ackUntil = SystemClock.elapsedRealtime() + 4_000; expanded = !KinVisibility.resumed.value
             }
-            previous = rest; current = rest; focus = work
+            previous = rest; current = rest; focus = work; completedFocus = if (showDoneOverlay) doneFocus else null
             if (rest?.phase == "DUE") {
                 val key = "${rest.id}:${rest.revision}"
                 if (key != seenDue) { seenDue = key; expanded = true }
             }
+            if (showDoneOverlay && doneFocus.id != seenCompletedFocusId) {
+                seenCompletedFocusId = doneFocus.id
+                expanded = true
+                layoutKey = ""
+            }
             val ack = rest?.phase == "RUNNING" && SystemClock.elapsedRealtime() < ackUntil
             if (acknowledgment && !ack) expanded = false
             acknowledgment = ack
-            remaining = if (rest != null) app.breaks.remaining(rest) else app.repository.remaining(work!!)
+            remaining = when {
+                rest != null -> app.breaks.remaining(rest)
+                work != null -> app.repository.remaining(work)
+                else -> 0L
+            }
             val key = "$nextMode:${rest?.revision}:${rest?.phase}:${work?.running}:${(remaining + 999) / 1000}:${pref?.snoozeMinutes}:${pref?.snoozeLimit}"
             if (key != notificationKey) {
-                try { getSystemService(NotificationManager::class.java).notify(BreakNotifications.FOREGROUND_ID,
-                    if (rest != null) BreakNotifications.foreground(this, rest, remaining, pref ?: UserPreferences()) else FocusTimerNotifications.foreground(this, work!!, remaining)) }
-                catch (_: SecurityException) { }
+                try {
+                    val notification = when {
+                        rest != null -> BreakNotifications.foreground(this, rest, remaining, pref ?: UserPreferences())
+                        work != null -> FocusTimerNotifications.foreground(this, work, remaining)
+                        else -> BreakNotifications.foreground(this, null)
+                    }
+                    getSystemService(NotificationManager::class.java).notify(BreakNotifications.FOREGROUND_ID, notification)
+                } catch (_: SecurityException) { }
                 notificationKey = key
             }
             val locked = getSystemService(KeyguardManager::class.java).isKeyguardLocked || !getSystemService(PowerManager::class.java).isInteractive
             val activeBreak = rest?.phase in listOf("RUNNING", "PAUSED")
             // A running break stays visible in KIN as well as in other apps.
-            // At expiry KIN owns its due dialog; outside KIN this service owns the large prompt.
-            val presentationAllowed = activeBreak || (!KinVisibility.resumed.value && !PipVisibility.visible.value)
+            // At expiry or focus completion KIN owns its in-app prompt; outside KIN this service owns the large prompt.
+            val presentationAllowed = activeBreak || showDoneOverlay || (!KinVisibility.resumed.value && !PipVisibility.visible.value)
             val eligible = pref != null && positionLoaded && Settings.canDrawOverlays(this) && !locked &&
                 !OverlayPreviewService.visible.value && presentationAllowed
             if (eligible) show() else hide()
             status.value = BreakTimerStatus(true, attached, when {
+                attached && showDoneOverlay -> "Focus complete · congratulations!"
                 attached && acknowledgment -> "Snoozed · remember your goal"
                 attached && expanded -> "Timer controls are open"
                 attached -> "Timer icon is at the screen edge · tap for controls"
@@ -147,7 +181,7 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private fun collapse() { expanded = false; acknowledgment = false; ackUntil = 0; layoutKey = ""; scope.launch { tick() } }
     private fun compactSize(metrics: DisplayMetrics): Pair<Int,Int> {
         val scale = resources.configuration.fontScale.coerceAtLeast(1f)
-        val width = ((112 + 56 * (scale - 1)) * metrics.density).toInt()
+        val width = ((116 + 56 * (scale - 1)) * metrics.density).toInt()
             .coerceAtMost((metrics.widthPixels - 16 * metrics.density).toInt()).coerceAtLeast(1)
         return width to ((64 + 32 * (scale - 1)) * metrics.density).toInt()
     }
@@ -156,14 +190,17 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         val settings = pref ?: return
         val metrics = screen()
         val (compactWidth, icon) = compactSize(metrics)
-        val width = if (expanded) minOf(metrics.widthPixels - (16 * metrics.density).toInt(), (320 * metrics.density).toInt()) else compactWidth
+        val width = if (expanded) minOf(metrics.widthPixels - (16 * metrics.density).toInt(), (332 * metrics.density).toInt()) else compactWidth
         val margin = (32 * metrics.density).toInt()
         val maxHeight = (metrics.heightPixels / metrics.density - 72).coerceAtLeast(180f)
         if (root == null) root = object : FrameLayout(this) {
             // ViewGroup may discard ACTION_OUTSIDE before an OnTouchListener sees it.
             // Observe it at dispatch; actual clicks remain with Compose and the other app.
             override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-                if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) { if (expanded) collapse(); return false }
+                if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) {
+                    if (expanded && completedFocus == null) collapse()
+                    return false
+                }
                 return super.dispatchTouchEvent(event)
             }
         }.apply {
@@ -172,8 +209,38 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             addView(ComposeView(this@BreakTimerService).apply {
                 setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
                 setContent { KinTheme(pref?.darkMode ?: settings.darkMode) {
-                    val rest = current; val work = focus; val preference = pref ?: settings
-                    if (!expanded) TimerBubble(work != null, rest?.phase == "PAUSED" || work?.running == false,
+                    val rest = current; val work = focus; val done = completedFocus; val preference = pref ?: settings
+                    if (done != null) {
+                        FocusCompletionOverlayPanel(
+                            session = done,
+                            companionName = preference.name,
+                            stage = stage,
+                            reducedMotion = preference.reducedMotion,
+                            maxHeight = maxHeight,
+                            onBreak = {
+                                scope.launch {
+                                    TimerAlerts.cancelFocus(app, done.id)
+                                    val open = Intent(this@BreakTimerService, ReminderActivity::class.java)
+                                        .putExtra("route", "focus")
+                                        .putExtra("completedFocusId", done.id)
+                                        .putExtra("chooseBreakAfterFocus", true)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                                    runCatching { startActivity(open) }
+                                    hide()
+                                    stopSelf(lastStartId)
+                                }
+                            },
+                            onStop = {
+                                scope.launch {
+                                    app.completions.dismiss(done.id)
+                                    TimerAlerts.cancelFocus(app, done.id)
+                                    completedFocus = null
+                                    hide()
+                                    stopSelf(lastStartId)
+                                }
+                            }
+                        )
+                    } else if (!expanded) TimerBubble(work != null, rest?.phase == "PAUSED" || work?.running == false,
                         rest?.phase == "DUE", remaining, stage,
                         onTap = { expanded = true; layoutKey = ""; scope.launch { tick() } }, onDrag = ::drag, onDrop = ::dock,
                         widthDp = compactWidth / metrics.density, heightDp = icon / metrics.density)
@@ -183,10 +250,11 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                             BreakPromptPanel(rest, preference, stage, acknowledgment, maxHeight - 48,
                                 onStart = { openBreak(rest) }, onSnooze = { scope.launch {
                                     if (app.breaks.snooze(rest.id, rest.revision)) app.database.dao().breakSession(rest.id)?.let { BreakNotifications.snoozed(app, it) }; tick()
-                                } }, onStop = { scope.launch { app.breaks.stop(rest.id, rest.revision); tick() } })
+                                } }, onStop = { scope.launch { app.breaks.stop(rest.id, rest.revision, penalizeXp = true); tick() } })
                         }
                     } else if (rest != null || work != null) TimerControls(work != null,
                         rest?.phase == "PAUSED" || work?.running == false, rest?.taskTitle ?: work!!.taskTitle, remaining, maxHeight,
+                        focusDurationMillis = work?.durationMillis ?: 0L,
                         onCollapse = { collapse() }, onPause = { scope.launch {
                             if (rest != null) { if (rest.phase == "PAUSED") app.breaks.resume(rest.id, rest.revision) else app.breaks.pause(rest.id, rest.revision) }
                             else if (work != null) { if (work.running) app.repository.pauseFocus(work.id) else app.repository.resumeFocus(work.id) }; tick()
@@ -206,9 +274,10 @@ class BreakTimerService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT).apply {
                 gravity = Gravity.TOP or Gravity.LEFT
-                x = BubblePosition.x(options.dockRight, metrics.widthPixels, width)
+                x = if (expanded) ((metrics.widthPixels - width) / 2).coerceAtLeast(0) else BubblePosition.x(options.dockRight, metrics.widthPixels, width)
                 val expectedHeight = if (expanded) root?.height?.takeIf { it > icon } ?: (360 * metrics.density).toInt() else icon
-                y = BubblePosition.y(options.verticalFraction, metrics.heightPixels, expectedHeight, margin)
+                y = if (completedFocus != null) ((metrics.heightPixels - expectedHeight) / 2).coerceAtLeast(margin)
+                    else BubblePosition.y(options.verticalFraction, metrics.heightPixels, expectedHeight, margin)
             }
         try {
             if (!attached) { windows.addView(root, layout); params = layout; attached = true; layoutKey = key; BreakPromptVisibility.acquire("break-service") }

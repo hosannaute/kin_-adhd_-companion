@@ -182,6 +182,8 @@ class BreakCycleTest {
         await { !BreakTimerService.status.value.visible }
         assertNull(app.database.dao().currentFocus())
         compose.onNode(hasText("Snooze 5 min") and hasAnyAncestor(isDialog())).performClick()
+        expect("Are you sure?")
+        compose.onNode(hasText("Yes, snooze 5 min") and hasAnyAncestor(isDialog())).performClick()
         await { iconVisible() }
         assertEquals(1,app.database.dao().currentBreak()!!.snoozeCount)
     }
@@ -318,6 +320,8 @@ class BreakCycleTest {
         expect("Your scrolling break")
         assertEquals(600_000L,app.database.dao().currentBreak()!!.durationMillis)
         compose.onNodeWithText("Stop break").performScrollTo().performClick()
+        expect("Are you sure?")
+        compose.onNode(hasText("Yes, stop break (-10 XP)") and hasAnyAncestor(isDialog())).performClick()
         expect("Plan a scrolling break")
         compose.onNodeWithText("Plan a scrolling break").performClick()
         compose.onNodeWithText("10 m").assertIsSelected()
@@ -538,6 +542,8 @@ class BreakCycleTest {
         await { runBlocking { app.database.dao().currentBreak()?.phase == "DUE" } }
         await { BreakTimerService.status.value.visible && nativeText("Your break is over") }
         clickWindow("Stop break")
+        await { nativeText("Are you sure?") }
+        clickWindow("Yes, stop break (-10 XP)")
         await { !BreakTimerService.status.value.running }
     }
 
@@ -585,6 +591,8 @@ class BreakCycleTest {
         expect("Your break is over")
         assertNull(app.database.dao().currentFocus())
         compose.onNode(hasText("Stop break") and hasAnyAncestor(isDialog())).performClick()
+        expect("Are you sure?")
+        compose.onNode(hasText("Yes, stop break (-10 XP)") and hasAnyAncestor(isDialog())).performClick()
         await { runBlocking { app.database.dao().currentBreak() == null } }
     }
 }

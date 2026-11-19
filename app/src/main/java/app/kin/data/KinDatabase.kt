@@ -29,6 +29,7 @@ interface KinDao {
     @Query("SELECT * FROM companion WHERE id = 1") fun companion(): Flow<CompanionState?>
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun initCompanion(companion: CompanionState)
     @Query("UPDATE companion SET xp = xp + :amount WHERE id = 1") suspend fun award(amount: Int)
+    @Query("UPDATE companion SET xp = MAX(0, xp - :amount) WHERE id = 1") suspend fun penalize(amount: Int)
     @Query("SELECT * FROM focus_sessions WHERE ended = 0 ORDER BY id DESC LIMIT 1")
     fun activeFocus(): Flow<FocusSession?>
     @Query("SELECT * FROM focus_sessions WHERE ended = 0 ORDER BY id DESC LIMIT 1")

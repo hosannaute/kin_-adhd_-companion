@@ -182,8 +182,10 @@ class KinRepository(private val context: Context, private val db: KinDatabase, p
             if (remaining(session) > 0) return@withTransaction null
             dao.updateSession(session.copy(ended = true, completed = true, running = false, remainingMillis = 0))
             finishBreakCycle(id, completed = true)
-            award(Rewards.FOCUS)
-            dao.insertAchievement(Achievement("focus:$id", "Completed a ${session.durationMillis / 60_000} minute focus session"))
+            val earnedXp = Rewards.focusForMillis(session.durationMillis)
+            award(earnedXp)
+            val mins = (session.durationMillis / 60_000L).coerceAtLeast(1)
+            dao.insertAchievement(Achievement("focus:$id", "Completed a $mins minute focus session (+$earnedXp XP)"))
             session.copy(ended = true, completed = true, running = false, remainingMillis = 0)
         }
         if (completed != null) {

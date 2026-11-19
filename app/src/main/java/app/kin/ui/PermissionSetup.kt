@@ -32,6 +32,7 @@ fun PermissionSetupScreen(vm: KinViewModel, onDone: () -> Unit) {
     var overlay by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var notifications by remember { mutableStateOf(Notifications.allowed(context)) }
     var battery by remember { mutableStateOf(context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)) }
+    var scrollAccess by remember { mutableStateOf(ScrollDetectorService.isEnabled(context)) }
     var notice by remember { mutableStateOf<String?>(null) }
     val grant = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notifications = Notifications.allowed(context) }
     fun open(intent: Intent) { try { context.startActivity(intent) } catch (_: RuntimeException) { notice = "Open your phone's Settings → Apps → KIN to change this permission." } }
@@ -39,6 +40,7 @@ fun PermissionSetupScreen(vm: KinViewModel, onDone: () -> Unit) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) {
             overlay = Settings.canDrawOverlays(context); notifications = Notifications.allowed(context)
             battery = context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
+            scrollAccess = ScrollDetectorService.isEnabled(context)
         } }
         lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer) }
     }
@@ -53,7 +55,7 @@ fun PermissionSetupScreen(vm: KinViewModel, onDone: () -> Unit) {
         Text("So KIN can bring you back when your scrolling break ends. Android asks you to approve each permission.")
         SoftCard {
             Text("1 · Show over other apps", style = MaterialTheme.typography.titleMedium)
-            Text(if (overlay) "Allowed · the countdown and large reminder can appear over other apps." else "Needed for the floating countdown and the large return-to-task window.")
+            Text(if (overlay) "Allowed · the countdown and large reminder can appear over other apps." else "Needed for the floating countdown, focus congratulations window, and large return-to-task window.")
             OutlinedButton(onClick = { open(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:${context.packageName}".toUri())) }) {
                 Text(if (overlay) "Manage companion window" else "Allow companion window")
             }
@@ -70,7 +72,14 @@ fun PermissionSetupScreen(vm: KinViewModel, onDone: () -> Unit) {
             TextButton(onClick = { open(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }) { Text("Open notification settings") }
         }
         SoftCard {
-            Text("3 · Keep timers running", style = MaterialTheme.typography.titleMedium)
+            Text("3 · Auto scroll detection (optional)", style = MaterialTheme.typography.titleMedium)
+            Text(if (scrollAccess) "Enabled · KIN will pop up a reminder window if you scroll past your chosen limit." else "Optional · enable KIN Auto Scroll Detection in Accessibility settings to pop up a window when you've been scrolling for more than 10 minutes. 100% offline, never reads screen text.")
+            OutlinedButton(onClick = { open(ScrollDetectorService.settingsIntent()) }) {
+                Text(if (scrollAccess) "Manage scroll detection" else "Enable auto scroll detection")
+            }
+        }
+        SoftCard {
+            Text("4 · Keep timers running", style = MaterialTheme.typography.titleMedium)
             TecnoBatteryHint()
             Text(if (battery) "Battery restrictions are relaxed for KIN." else "Some phones stop background timers. In KIN's battery settings, allow background activity or choose Unrestricted if available.")
             OutlinedButton(onClick = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri())) }) { Text("Open KIN battery settings") }
@@ -86,7 +95,7 @@ fun PermissionSetupScreen(vm: KinViewModel, onDone: () -> Unit) {
         Text(if (overlay) "Ready for floating break reminders." else "Window permission is off. You can continue, but reminders will only appear inside KIN or in notifications.", fontWeight = FontWeight.Medium)
         notice?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(if (overlay) "Continue to KIN" else "Continue without floating window") }
-        Text("You can revisit this setup in Settings. App usage access is optional and only needed for automatic app-time check-ins.", style = MaterialTheme.typography.bodySmall)
+        Text("You can revisit this setup in Settings anytime.", style = MaterialTheme.typography.bodySmall)
     }
 }
 

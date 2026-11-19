@@ -126,4 +126,11 @@ class BreakPersistenceTest {
         val next = breaks.refresh(value.id)!!
         assertTrue(breaks.claimReminder(next.id, next.revision))
     }
+    @Test fun stopWithPenaltyReducesCompanionXpAtomically() = runBlocking {
+        db.dao().initCompanion(CompanionState(xp = 25))
+        val value = begin()
+        assertTrue(breaks.stop(value.id, value.revision, penalizeXp = true))
+        assertFalse(breaks.stop(value.id, value.revision, penalizeXp = true))
+        assertEquals(15, db.dao().companion().first()!!.xp)
+    }
 }

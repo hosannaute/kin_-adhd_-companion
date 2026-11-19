@@ -28,9 +28,9 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun PageTitle(title: String, subtitle: String, action: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         action?.invoke()
@@ -39,31 +39,99 @@ fun PageTitle(title: String, subtitle: String, action: (@Composable () -> Unit)?
 
 @Composable
 fun SoftCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Card(modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
+    val palette = KinPalette.current
+    Card(
+        modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, palette.cardBorder.copy(alpha = 0.75f))
+    ) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+    }
+}
+
+@Composable
+fun XpBadge(
+    text: String,
+    modifier: Modifier = Modifier,
+    positive: Boolean = true
+) {
+    val palette = KinPalette.current
+    val bg = if (positive) palette.xpGoldContainer else MaterialTheme.colorScheme.errorContainer
+    val fg = if (positive) palette.xpGoldOnContainer else MaterialTheme.colorScheme.onErrorContainer
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(999.dp),
+        color = bg,
+        border = BorderStroke(1.dp, (if (positive) palette.xpGold else MaterialTheme.colorScheme.error).copy(alpha = 0.25f))
+    ) {
+        Row(
+            Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                if (positive) Icons.Outlined.AutoAwesome else Icons.Outlined.WarningAmber,
+                contentDescription = null,
+                tint = fg,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(text, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = fg)
+        }
+    }
+}
+
+@Composable
+fun StatusPill(label: String, active: Boolean, modifier: Modifier = Modifier) {
+    val bg = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val fg = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    val dot = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+    Surface(modifier = modifier, shape = RoundedCornerShape(999.dp), color = bg) {
+        Row(
+            Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(Modifier.size(7.dp).clip(androidx.compose.foundation.shape.CircleShape).background(dot))
+            Text(label, style = MaterialTheme.typography.labelMedium, color = fg, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
 @Composable
 fun TaskRow(task: Task, complete: () -> Unit, edit: () -> Unit, start: () -> Unit, compact: Boolean = false) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    val palette = KinPalette.current
+    val priorityColor = when (task.priority) {
+        2 -> palette.priorityHigh
+        1 -> palette.priorityNormal
+        else -> palette.priorityGentle
+    }
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.width(3.dp).height(34.dp).clip(RoundedCornerShape(99.dp)).background(if (task.resolved) MaterialTheme.colorScheme.outlineVariant else priorityColor))
         IconToggleButton(checked = task.completed, onCheckedChange = { if (!task.resolved) complete() }, enabled = !task.resolved) {
             Icon(if (task.completed) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
                 "Complete ${task.title}", tint = if (task.completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(task.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            Text("${task.minutes} min · ${task.category}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(task.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = if (task.resolved) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("${task.minutes} min · ${task.category}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (!task.resolved) {
+                    Surface(shape = RoundedCornerShape(999.dp), color = palette.xpGoldContainer) {
+                        Text("+${Rewards.task(task.minutes)} XP", Modifier.padding(horizontal = 7.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = palette.xpGoldOnContainer)
+                    }
+                }
+            }
             if (!compact) Text(Instant.ofEpochMilli(task.scheduledAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d · h:mm a")),
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (task.skipped) Text("Skipped · no XP", style = MaterialTheme.typography.labelSmall)
-            if (!compact && task.repeatRule != RepeatRule.NONE.name) Text("${RepeatRule.valueOf(task.repeatRule).label} · ${task.repeatZone}", style = MaterialTheme.typography.labelSmall)
+            if (task.skipped) Text("Skipped · no XP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (!compact && task.repeatRule != RepeatRule.NONE.name) Text("${RepeatRule.valueOf(task.repeatRule).label} · ${task.repeatZone}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
-        if (compact) IconButton(onClick = edit) { Icon(Icons.Outlined.ChevronRight,"Edit ${task.title}") }
-        else Column {
-            if (!task.resolved) FilledTonalIconButton(onClick = start, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.PlayArrow, "Focus on ${task.title}") }
-            IconButton(onClick = edit, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.Edit, "Edit ${task.title}", modifier = Modifier.size(18.dp)) }
+        if (compact) IconButton(onClick = edit) { Icon(Icons.Outlined.ChevronRight, "Edit ${task.title}", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        else Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!task.resolved) FilledTonalIconButton(onClick = start, modifier = Modifier.size(44.dp)) { Icon(Icons.Outlined.PlayArrow, "Focus on ${task.title}") }
+            IconButton(onClick = edit, modifier = Modifier.size(44.dp)) { Icon(Icons.Outlined.Edit, "Edit ${task.title}", modifier = Modifier.size(18.dp)) }
         }
     }
 }

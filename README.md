@@ -1,17 +1,17 @@
 # KIN
 
-> **Latest app: [Download KIN 0.9.0 APK](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/tags/v0.9.0-debug/downloads/KIN-debug.apk)** · [Release notes](https://github.com/hosannaute/kin_-adhd_-companion/releases/tag/v0.9.0-debug) · [Release source](https://github.com/hosannaute/kin_-adhd_-companion/tree/v0.9.0-debug)
+> **Latest app: [Download KIN 1.0.0 APK](https://github.com/hosannaute/kin_-adhd_-companion/releases/download/v1.0.0-debug/KIN-debug.apk)** · [Release notes](https://github.com/hosannaute/kin_-adhd_-companion/releases/tag/v1.0.0-debug) · [Release source](https://github.com/hosannaute/kin_-adhd_-companion/tree/v1.0.0-debug)
 
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
-**Status: native Android 0.9.0 development build with a refined interface, personal timer sounds, focus congratulations, offline backup/restore, selectable timer alerts, a persistent scrolling-break countdown, a break → reminder → focus cycle and native focus Picture-in-Picture.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks; this is not the complete master specification. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
+**Status: native Android 1.0.0 offline build with break snooze/stop confirmations & XP accountability, duration-scaled focus XP with floating Congratulations windows, offline Auto Scroll Detection with floating scroll check-in alerts, and a refreshed design system.** Build/test evidence is recorded in VALIDATION.md. Physical-device and OEM acceptance remain separate checks. See [validation evidence](docs/VALIDATION.md) and the [remaining milestones](docs/ROADMAP.md).
 
 ## Download
 
-[Download KIN 0.9.0 debug APK](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/tags/v0.9.0-debug/downloads/KIN-debug.apk) · Android 8.0 or later.
+[Download KIN 1.0.0 debug APK](https://github.com/hosannaute/kin_-adhd_-companion/releases/download/v1.0.0-debug/KIN-debug.apk) · Android 8.0 or later.
 
-This is an early debug build, not a production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). The checked-in APK is built from this branch's app source; subsequent documentation-only commits do not change its code. It uses the existing signing certificate and explicit database migrations from schema 1/2 to 3 for in-place updates. Known missing features are listed below and in the roadmap.
+This is a debug build, not a Play Store production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). If you are upgrading from an older build signed with a different debug keystore, export an offline backup in KIN Settings first, uninstall the old build, install 1.0.0, and restore your backup.
 
 ## Implemented in source
 

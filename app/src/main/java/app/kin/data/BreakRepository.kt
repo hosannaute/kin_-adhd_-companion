@@ -74,7 +74,21 @@ class BreakRepository(private val context: Context, private val db: KinDatabase,
                 bootCount = boot, dueAtWall = wall() + duration * 60_000L, snoozeCount = old.snoozeCount + 1)
         }
     }
-    suspend fun stop(id: Long, revision: Int): Boolean = mutate(id, revision, setOf("RUNNING", "PAUSED", "DUE")) { it.copy(phase = "STOPPED") }
+    suspend fun stop(id: Long, revision: Int, penalizeXp: Boolean = false): Boolean {
+        val value = db.withTransaction {
+            val old = dao.breakSession(id) ?: return@withTransaction null
+            if (old.revision != revision || old.phase !in setOf("RUNNING", "PAUSED", "DUE")) return@withTransaction null
+            val updated = old.copy(phase = "STOPPED", revision = old.revision + 1)
+            dao.updateBreak(updated)
+            if (penalizeXp) {
+                dao.initCompanion(CompanionState())
+                dao.penalize(Rewards.BREAK_STOP_PENALTY)
+            }
+            updated
+        } ?: return false
+        scheduler.cancelBreak(id)
+        return true
+    }
 
     private suspend fun mutate(id: Long, revision: Int, phases: Set<String>, allowed: (BreakSession) -> Boolean = { true }, update: (BreakSession) -> BreakSession): Boolean {
         val value = db.withTransaction {
