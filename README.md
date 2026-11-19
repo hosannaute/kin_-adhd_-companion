@@ -1,6 +1,6 @@
 # KIN
 
-> **Latest app: [Download KIN 1.0.0 APK](https://github.com/hosannaute/kin_-adhd_-companion/releases/download/v1.0.0-debug/KIN-debug.apk)** · [Release notes](https://github.com/hosannaute/kin_-adhd_-companion/releases/tag/v1.0.0-debug) · [Release source](https://github.com/hosannaute/kin_-adhd_-companion/tree/v1.0.0-debug)
+> **Latest app: [Download KIN 1.0.0 APK](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/tags/v1.0.0-debug/downloads/KIN-debug.apk)** · [Release notes](https://github.com/hosannaute/kin_-adhd_-companion/releases/tag/v1.0.0-debug) · [Release source](https://github.com/hosannaute/kin_-adhd_-companion/tree/v1.0.0-debug)
 
 A native Android productivity companion for finding your way back to your goals.
 Small adventures, a gentle fantasy creature, and focus without perfect streaks.
@@ -9,7 +9,7 @@ Small adventures, a gentle fantasy creature, and focus without perfect streaks.
 
 ## Download
 
-[Download KIN 1.0.0 debug APK](https://github.com/hosannaute/kin_-adhd_-companion/releases/download/v1.0.0-debug/KIN-debug.apk) · Android 8.0 or later.
+[Download KIN 1.0.0 debug APK](https://github.com/hosannaute/kin_-adhd_-companion/raw/refs/tags/v1.0.0-debug/downloads/KIN-debug.apk) · Android 8.0 or later.
 
 This is a debug build, not a Play Store production release. Android may ask you to allow installation from your browser or file manager. The matching SHA-256 is in [downloads/KIN-debug.apk.sha256](downloads/KIN-debug.apk.sha256). If you are upgrading from an older build signed with a different debug keystore, export an offline backup in KIN Settings first, uninstall the old build, install 1.0.0, and restore your backup.
 
