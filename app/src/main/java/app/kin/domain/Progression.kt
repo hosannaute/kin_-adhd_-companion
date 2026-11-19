@@ -11,7 +11,27 @@ enum class Evolution(val threshold: Int, val label: String) {
 object Rewards {
     const val FOCUS = 15
     const val MILESTONE = 50
+    const val BREAK_STOP_PENALTY = 10
     fun task(minutes: Int) = when { minutes <= 15 -> 10; minutes <= 45 -> 20; else -> 30 }
+
+    /** Longer completed focus sessions award progressively higher XP. */
+    fun focus(minutes: Int): Int {
+        val m = minutes.coerceIn(1, 180)
+        return when {
+            m <= 5 -> FOCUS
+            m < 15 -> FOCUS + (m - 5) * 2
+            m < 25 -> 35 + (m - 15) * 3
+            m < 45 -> 65 + (m - 25) * 3
+            m < 60 -> 130 + (m - 45) * 4
+            else -> 190 + (m - 60) * 4
+        }
+    }
+
+    fun focusForMillis(durationMillis: Long): Int =
+        focus(((durationMillis + 59_999L) / 60_000L).toInt().coerceAtLeast(1))
+
+    fun applyPenalty(currentXp: Int, penalty: Int = BREAK_STOP_PENALTY): Int =
+        (currentXp - penalty.coerceAtLeast(0)).coerceAtLeast(0)
 }
 
 object FocusClock {
